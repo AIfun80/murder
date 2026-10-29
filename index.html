@@ -41,6 +41,26 @@
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: #0f172a; }
     ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+
+    /* Mobile Micro-Haptics Visual Edge-Pulse Fallback (iOS & Android) */
+    @keyframes hapticEdgePulse {
+      0% { box-shadow: inset 0 0 0 0 rgba(244, 63, 94, 0); }
+      45% { box-shadow: inset 0 0 28px 6px rgba(244, 63, 94, 0.72); }
+      100% { box-shadow: inset 0 0 0 0 rgba(244, 63, 94, 0); }
+    }
+    body.haptic-pulse-active {
+      animation: hapticEdgePulse 0.36s ease-out;
+    }
+
+    /* Killer Sabotage Blackout Glitch Animation */
+    @keyframes sabotageFlicker {
+      0%, 100% { opacity: 0.96; transform: scale(1); }
+      33% { opacity: 0.85; transform: translate(-1px, 1px); }
+      66% { opacity: 0.99; transform: translate(1px, -1px); }
+    }
+    .sabotage-glitch-overlay {
+      animation: sabotageFlicker 0.18s infinite alternate;
+    }
   </style>
 </head>
 <body class="min-h-screen flex flex-col bg-slate-950 text-slate-100 select-none">
@@ -1820,6 +1840,7 @@ class SoundEngine {
     this.ambientEnabled = true;
     this.currentAmbientProfile = null;
     this.ambientGain = null;
+    this.masterFilter = null;
     this.ambientNodes = [];
     this.ambientAudioEl = new Audio();
     this.ambientAudioEl.loop = true;
@@ -1832,6 +1853,9 @@ class SoundEngine {
     this.ttsQueue = [];
     this.isSpeakingCloud = false;
     this.ttsWatchdog = null;
+    this.escalationPhase = "NORMAL"; // "NORMAL" | "TENSION" | "PANIC"
+    this.pulseInterval = null;
+    this.isSabotageMuffled = false;
   }
 
   unlock() {
@@ -1890,10 +1914,15 @@ class SoundEngine {
   startSynthAmbient(profile = "space") {
     if (!this.ctx || !this.ambientEnabled || this.isMuted) return;
     const now = this.ctx.currentTime;
+    this.masterFilter = this.ctx.createBiquadFilter();
+    this.masterFilter.type = "lowpass";
+    this.masterFilter.frequency.setValueAtTime(this.isSabotageMuffled ? 240 : 18000, now);
+
     this.ambientGain = this.ctx.createGain();
     this.ambientGain.gain.setValueAtTime(0.01, now);
     this.ambientGain.gain.linearRampToValueAtTime(0.14, now + 2.0);
-    this.ambientGain.connect(this.ctx.destination);
+    this.ambientGain.connect(this.masterFilter);
+    this.masterFilter.connect(this.ctx.destination);
 
     if (profile === "woods" || profile === "manor") {
       const noise = this.ctx.createBufferSource();
@@ -1948,6 +1977,12 @@ class SoundEngine {
       try { this.ambientGain.disconnect(); } catch (e) {}
       this.ambientGain = null;
     }
+    if (this.masterFilter) {
+      try { this.masterFilter.disconnect(); } catch (e) {}
+      this.masterFilter = null;
+    }
+    this.stopEscalationPulse();
+    this.escalationPhase = "NORMAL";
     this.currentAmbientProfile = null;
   }
 
@@ -2160,9 +2195,135 @@ class SoundEngine {
       this.fallbackNativeSpeech(text);
     }
   }
+  // --- DYNAMIC AUDIO ESCALATION & BLACKOUT MUFFLE ---
+  evaluateEscalation(remainingSeconds, isPaused, isBlackoutSabotage, round) {
+    if (this.isMuted || !this.ambientEnabled || round < 1 || round > 3) {
+      this.stopEscalationPulse();
+      this.escalationPhase = "NORMAL";
+      return;
+    }
+
+    if (isPaused) {
+      this.stopEscalationPulse();
+      if (this.usingMp3Ambient && this.ambientAudioEl && !this.ambientAudioEl.paused) {
+        try { this.ambientAudioEl.pause(); } catch (e) {}
+      }
+      if (this.ctx && this.ambientGain) {
+        this.ambientGain.gain.setTargetAtTime(0.001, this.ctx.currentTime, 0.2);
+      }
+      return;
+    } else {
+      if (this.usingMp3Ambient && this.ambientAudioEl && this.ambientAudioEl.paused) {
+        this.ambientAudioEl.play().catch(() => {});
+      }
+      if (this.ctx && this.ambientGain && !this.isSpeakingCloud) {
+        this.ambientGain.gain.setTargetAtTime(isBlackoutSabotage ? 0.04 : 0.14, this.ctx.currentTime, 0.3);
+      }
+    }
+
+    this.isSabotageMuffled = Boolean(isBlackoutSabotage);
+    if (this.ctx && this.masterFilter) {
+      const targetCutoff = isBlackoutSabotage ? 220 : (remainingSeconds <= 60 ? 2800 : (remainingSeconds <= 180 ? 1800 : 18000));
+      this.masterFilter.frequency.setTargetAtTime(targetCutoff, this.ctx.currentTime, 0.25);
+    }
+    if (this.usingMp3Ambient && this.ambientAudioEl && !this.isSpeakingCloud) {
+      this.ambientAudioEl.volume = isBlackoutSabotage ? 0.05 : 0.22;
+    }
+
+    if (remainingSeconds <= 60 && remainingSeconds > 0) {
+      if (this.escalationPhase !== "PANIC") {
+        this.escalationPhase = "PANIC";
+        if (this.usingMp3Ambient && this.ambientAudioEl) {
+          try { this.ambientAudioEl.playbackRate = 1.08; } catch (e) {}
+        }
+        this.startEscalationPulse(620, 0.26, true);
+      }
+    } else if (remainingSeconds <= 180 && remainingSeconds > 60) {
+      if (this.escalationPhase !== "TENSION") {
+        this.escalationPhase = "TENSION";
+        if (this.usingMp3Ambient && this.ambientAudioEl) {
+          try { this.ambientAudioEl.playbackRate = 1.03; } catch (e) {}
+        }
+        this.startEscalationPulse(1150, 0.14, false);
+      }
+    } else if (this.escalationPhase !== "NORMAL") {
+      this.escalationPhase = "NORMAL";
+      if (this.usingMp3Ambient && this.ambientAudioEl) {
+        try { this.ambientAudioEl.playbackRate = 1.0; } catch (e) {}
+      }
+      this.stopEscalationPulse();
+    }
+  }
+
+  startEscalationPulse(intervalMs, maxGain, includeDoubleBeat = false) {
+    this.stopEscalationPulse();
+    this.pulseInterval = setInterval(() => {
+      if (!this.ctx || this.isMuted || !this.ambientEnabled) return;
+      if (this.ctx.state === "suspended") this.ctx.resume().catch(() => {});
+      this.triggerSubBassBeat(0, maxGain);
+      if (includeDoubleBeat) {
+        this.triggerSubBassBeat(0.18, maxGain * 0.65);
+      }
+    }, intervalMs);
+  }
+
+  triggerSubBassBeat(delaySec, peakGain) {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime + delaySec;
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(58, now);
+    osc.frequency.exponentialRampToValueAtTime(28, now + 0.16);
+    g.gain.setValueAtTime(0.001, now);
+    g.gain.linearRampToValueAtTime(peakGain, now + 0.025);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.19);
+    osc.connect(g);
+    g.connect(this.ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.21);
+  }
+
+  stopEscalationPulse() {
+    if (this.pulseInterval) {
+      clearInterval(this.pulseInterval);
+      this.pulseInterval = null;
+    }
+  }
 }
 
 const soundFX = new SoundEngine();
+
+/* ============================================================================
+   3B. MOBILE MICRO-HAPTICS ENGINE (VIBRATION API + VISUAL PULSE FALLBACK)
+   ============================================================================ */
+const HapticsEngine = {
+  PATTERNS: {
+    CLUE_RECEIVED: [80, 50, 110],
+    PATDOWN_UNLOCKED: [180, 70, 180],
+    SABOTAGE_BLACKOUT: [320, 100, 160, 80, 380],
+    SABOTAGE_SENT: [55],
+    TWIST_ALERT: [120, 70, 120, 70, 260],
+    PAUSE_TOGGLE: [60, 60],
+    VOTE_LOCKED: [70],
+    READY: [45],
+    ERROR: [45, 45, 45]
+  },
+
+  trigger(patternKey = "READY") {
+    if (typeof appState !== "undefined" && appState.viewMode === "tv") return;
+    const pattern = this.PATTERNS[patternKey] || [50];
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      try { navigator.vibrate(pattern); } catch (e) {}
+    }
+    if (patternKey !== "SABOTAGE_SENT") {
+      document.body.classList.remove("haptic-pulse-active");
+      void document.body.offsetWidth;
+      document.body.classList.add("haptic-pulse-active");
+      setTimeout(() => document.body.classList.remove("haptic-pulse-active"), 380);
+    }
+  }
+};
 
 /* ============================================================================
    4. REAL-TIME SYNC ENGINE, MUGSHOT STUDIO & PRIVATE CORKBOARD STORAGE
@@ -2176,7 +2337,9 @@ let appState = {
   playerMugshot: localStorage.getItem("mm_player_mugshot") || "",
   corkboardOpen: false,
   sessionData: null,
-  lastPlayedEventId: null
+  lastPlayedEventId: null,
+  lastPauseState: false,
+  lastDecoyCount: 0
 };
 localStorage.setItem("mm_player_id", appState.playerId);
 
@@ -2343,6 +2506,32 @@ function getPlayerUnlockedList(playerObj) {
   return Object.values(playerObj.unlockedPrivateClues).filter(Boolean);
 }
 
+function getPlayerDecoysList(playerObj) {
+  if (!playerObj || !playerObj.plantedDecoys) return [];
+  if (Array.isArray(playerObj.plantedDecoys)) return playerObj.plantedDecoys.filter(Boolean);
+  return Object.values(playerObj.plantedDecoys).filter(Boolean).sort((a, b) => (b.receivedAt || 0) - (a.receivedAt || 0));
+}
+
+function isSabotageBlackoutActive(session) {
+  if (!session) return false;
+  if (session.isPaused) return (session.pausedSabotageBlackoutRemMs || 0) > 0;
+  return Boolean(session.sabotageBlackoutUntil && Date.now() < session.sabotageBlackoutUntil);
+}
+
+function getSabotageBlackoutRemainingSec(session) {
+  if (!session) return 0;
+  if (session.isPaused) return Math.max(0, Math.ceil((session.pausedSabotageBlackoutRemMs || 0) / 1000));
+  if (!session.sabotageBlackoutUntil) return 0;
+  return Math.max(0, Math.ceil((session.sabotageBlackoutUntil - Date.now()) / 1000));
+}
+
+function getSabotageCooldownRemainingSec(session) {
+  if (!session) return 0;
+  if (session.isPaused) return Math.max(0, Math.ceil((session.pausedSabotageCooldownRemMs || 0) / 1000));
+  if (!session.sabotageCooldownUntil) return 0;
+  return Math.max(0, Math.ceil((session.sabotageCooldownUntil - Date.now()) / 1000));
+}
+
 function autoPurgeExpiredRooms() {
   const cutoff = Date.now() - ROOM_TTL_MS;
   try {
@@ -2501,14 +2690,30 @@ function handleIncomingSessionUpdate(newSession) {
     }
   }
 
+  if (Boolean(newSession.isPaused) !== appState.lastPauseState) {
+    appState.lastPauseState = Boolean(newSession.isPaused);
+    if (appState.viewMode === "player") {
+      HapticsEngine.trigger("PAUSE_TOGGLE");
+    }
+  }
+
+  const meObj = newSession.players && newSession.players[appState.playerId];
+  const myDecoyCount = getPlayerDecoysList(meObj).length;
+  if (myDecoyCount > appState.lastDecoyCount) {
+    if (appState.lastDecoyCount >= 0 && appState.viewMode === "player" && newSession.round >= 1) {
+      HapticsEngine.trigger("CLUE_RECEIVED");
+    }
+  }
+  appState.lastDecoyCount = myDecoyCount;
+
   if (newSession.latestEvent && newSession.latestEvent.id !== appState.lastPlayedEventId) {
     appState.lastPlayedEventId = newSession.latestEvent.id;
     const ev = newSession.latestEvent;
 
     if (appState.viewMode === "tv") {
-      if (ev.type === "blackout") {
+      if (ev.type === "blackout" || ev.type === "sabotage_blackout") {
         soundFX.playBlackoutFX(pack ? pack.soundProfile : "siren");
-        setTimeout(() => soundFX.speakBulletin(ev.speechText || ev.text, ev.mp3File), 1800);
+        setTimeout(() => soundFX.speakBulletin(ev.speechText || ev.text, ev.mp3File), 1600);
       } else if (ev.type === "clue" || ev.type === "phase" || ev.type === "twist") {
         soundFX.playChime();
         if (ev.speechText || ev.mp3File) soundFX.speakBulletin(ev.speechText || ev.text, ev.mp3File);
@@ -2516,8 +2721,14 @@ function handleIncomingSessionUpdate(newSession) {
         soundFX.playDrumrollAndReveal();
         if (ev.speechText || ev.mp3File) soundFX.speakBulletin(ev.speechText || ev.text, ev.mp3File);
       }
-    } else if (appState.viewMode === "player" && (ev.type === "blackout" || ev.type === "twist")) {
-      if (navigator.vibrate) navigator.vibrate([350, 120, 400]);
+    } else if (appState.viewMode === "player") {
+      if (ev.type === "blackout" || ev.type === "sabotage_blackout") {
+        HapticsEngine.trigger("SABOTAGE_BLACKOUT");
+      } else if (ev.type === "twist") {
+        HapticsEngine.trigger("TWIST_ALERT");
+      } else if (ev.type === "clue" || ev.type === "phase" || ev.type === "reveal") {
+        HapticsEngine.trigger("CLUE_RECEIVED");
+      }
     }
   }
 
@@ -2686,17 +2897,27 @@ function toggleTimerPause() {
 
   if (s.isPaused) {
     const rem = typeof s.pausedRemainingMs === "number" ? s.pausedRemainingMs : 5 * 60 * 1000;
+    const sabCoolRem = typeof s.pausedSabotageCooldownRemMs === "number" ? s.pausedSabotageCooldownRemMs : 0;
+    const sabBlkRem = typeof s.pausedSabotageBlackoutRemMs === "number" ? s.pausedSabotageBlackoutRemMs : 0;
     updates = {
       isPaused: false,
       pausedRemainingMs: null,
+      pausedSabotageCooldownRemMs: null,
+      pausedSabotageBlackoutRemMs: null,
       phaseEndsAt: now + rem,
+      sabotageCooldownUntil: sabCoolRem > 0 ? (now + sabCoolRem) : null,
+      sabotageBlackoutUntil: sabBlkRem > 0 ? (now + sabBlkRem) : null,
       updatedAt: now
     };
   } else {
     const rem = Math.max(0, (s.phaseEndsAt || now) - now);
+    const sabCoolRem = s.sabotageCooldownUntil ? Math.max(0, s.sabotageCooldownUntil - now) : 0;
+    const sabBlkRem = s.sabotageBlackoutUntil ? Math.max(0, s.sabotageBlackoutUntil - now) : 0;
     updates = {
       isPaused: true,
       pausedRemainingMs: rem,
+      pausedSabotageCooldownRemMs: sabCoolRem,
+      pausedSabotageBlackoutRemMs: sabBlkRem,
       updatedAt: now
     };
   }
@@ -2707,6 +2928,111 @@ function toggleTimerPause() {
     const copy = JSON.parse(JSON.stringify(s));
     Object.assign(copy, updates);
     writeRoomState(copy);
+  }
+}
+
+/* --- KILLER SABOTAGE COOLDOWN ACTIONS (BLACKOUT & PLANT RED HERRING) --- */
+const SABOTAGE_COOLDOWN_MS = 90 * 1000; // 90 seconds
+const SABOTAGE_BLACKOUT_DURATION_MS = 20 * 1000; // 20 seconds
+
+function triggerKillerSabotage(actionType) {
+  const s = appState.sessionData;
+  if (!s || s.round < 1 || s.round > 3) return;
+  if (s.isPaused) {
+    HapticsEngine.trigger("ERROR");
+    return alert("Game is currently in Intermission Pause! Wait until the Host resumes.");
+  }
+
+  const pack = getEffectivePack(s.mysteryId, s.variantIndex);
+  const me = s.players && s.players[appState.playerId];
+  const myChar = (me && me.characterId) ? pack.characters.find(c => c.id === me.characterId) : null;
+  if (!myChar || myChar.role !== "killer") {
+    HapticsEngine.trigger("ERROR");
+    return;
+  }
+
+  const now = Date.now();
+  if (s.sabotageCooldownUntil && now < s.sabotageCooldownUntil) {
+    HapticsEngine.trigger("ERROR");
+    return;
+  }
+
+  const nextCooldownUntil = now + SABOTAGE_COOLDOWN_MS;
+
+  if (actionType === "BLACKOUT") {
+    const blackoutUntil = now + SABOTAGE_BLACKOUT_DURATION_MS;
+    const evObj = {
+      id: "ev_sab_blk_" + now,
+      type: "sabotage_blackout",
+      text: "⚡ POWER SABOTAGED! Security terminals offline & 1-on-1 Pat-Downs locked for 20 seconds!",
+      speechText: "Warning! Power grid sabotage detected. Security terminals and suspect pat-downs are locked for twenty seconds."
+    };
+
+    if (firebaseDb && appState.roomCode) {
+      firebaseDb.ref(`mystery_rooms/${appState.roomCode}`).update({
+        sabotageCooldownUntil: nextCooldownUntil,
+        sabotageBlackoutUntil: blackoutUntil,
+        latestEvent: evObj,
+        updatedAt: now
+      });
+    } else {
+      const copy = JSON.parse(JSON.stringify(s));
+      copy.sabotageCooldownUntil = nextCooldownUntil;
+      copy.sabotageBlackoutUntil = blackoutUntil;
+      copy.latestEvent = evObj;
+      writeRoomState(copy);
+    }
+    HapticsEngine.trigger("SABOTAGE_SENT");
+  } else if (actionType === "PLANT_DECOY") {
+    const otherPids = Object.keys(s.players || {}).filter(pid => {
+      if (pid === appState.playerId) return false;
+      const pChar = pack.characters.find(c => c.id === s.players[pid].characterId);
+      return !pChar || pChar.role !== "victim";
+    });
+    const fallbackPids = Object.keys(s.players || {}).filter(pid => pid !== appState.playerId);
+    const pool = otherPids.length > 0 ? otherPids : fallbackPids;
+
+    if (pool.length === 0) {
+      HapticsEngine.trigger("ERROR");
+      return alert("No other suspects in the room to plant a decoy clue on!");
+    }
+
+    const targetPid = pool[Math.floor(Math.random() * pool.length)];
+    const innocentChars = pack.characters.filter(c => c.role === "suspect");
+    const framedChar = innocentChars.length > 0
+      ? innocentChars[Math.floor(Math.random() * innocentChars.length)]
+      : pack.characters[1];
+    const framedShort = framedChar ? framedChar.name.split("(")[0].trim() : "an unknown guest";
+
+    const decoyTemplates = [
+      `Anonymous Corridor Tip: Someone matching ${framedShort}'s silhouette was spotted hurriedly wiping down evidence near the crime scene.`,
+      `Intercepted Security Slip: Unverified witness claims ${framedShort} was seen tampering with the breaker latch five minutes before the alarm.`,
+      `Overheard Whisper: A guest swore they saw ${framedShort} hiding a restricted item in their pocket right before the commotion.`
+    ];
+    const chosenDetail = decoyTemplates[Math.floor(Math.random() * decoyTemplates.length)];
+    const decoyId = "decoy_" + now;
+    const decoyObj = {
+      id: decoyId,
+      title: "🕵️ ANONYMOUS TIP-OFF SLIP",
+      detail: chosenDetail,
+      isDecoy: true,
+      receivedAt: now
+    };
+
+    if (firebaseDb && appState.roomCode) {
+      firebaseDb.ref(`mystery_rooms/${appState.roomCode}`).update({
+        sabotageCooldownUntil: nextCooldownUntil,
+        [`players/${targetPid}/plantedDecoys/${decoyId}`]: decoyObj,
+        updatedAt: now
+      });
+    } else {
+      const copy = JSON.parse(JSON.stringify(s));
+      copy.sabotageCooldownUntil = nextCooldownUntil;
+      if (!copy.players[targetPid].plantedDecoys) copy.players[targetPid].plantedDecoys = {};
+      copy.players[targetPid].plantedDecoys[decoyId] = decoyObj;
+      writeRoomState(copy);
+    }
+    HapticsEngine.trigger("SABOTAGE_SENT");
   }
 }
 
@@ -2867,6 +3193,14 @@ function assignCharactersAndStartAct1() {
 function executePinPatDown() {
   const s = appState.sessionData;
   if (!s || !s.players) return;
+  if (s.isPaused) {
+    HapticsEngine.trigger("ERROR");
+    return alert("Investigation is currently paused for a Drink / Bathroom Intermission!");
+  }
+  if (isSabotageBlackoutActive(s)) {
+    HapticsEngine.trigger("ERROR");
+    return alert("⚡ POWER SABOTAGED! 1-on-1 Pat-Down terminals are locked out until emergency power comes back online!");
+  }
   const me = s.players[appState.playerId];
   if (!me) return;
   if ((me.patDownTokens || 0) <= 0) {
@@ -2894,6 +3228,7 @@ function executePinPatDown() {
   }
 
   if (inputEl) inputEl.value = "";
+  HapticsEngine.trigger("PATDOWN_UNLOCKED");
   const newTokens = Math.max(0, (me.patDownTokens || 1) - 1);
   if (firebaseDb && appState.roomCode) {
     firebaseDb.ref(`mystery_rooms/${appState.roomCode}/players/${appState.playerId}`).update({
@@ -3158,6 +3493,11 @@ function advanceToAct3Voting() {
 }
 
 function submitPlayerVote(voterId, suspectCharId) {
+  if (appState.sessionData && appState.sessionData.isPaused) {
+    HapticsEngine.trigger("ERROR");
+    return alert("Game is paused for Intermission!");
+  }
+  HapticsEngine.trigger("VOTE_LOCKED");
   if (firebaseDb && appState.roomCode) {
     firebaseDb.ref(`mystery_rooms/${appState.roomCode}/votes/${voterId}`).set(suspectCharId);
     firebaseDb.ref(`mystery_rooms/${appState.roomCode}/updatedAt`).set(Date.now());
@@ -3170,6 +3510,11 @@ function submitPlayerVote(voterId, suspectCharId) {
 }
 
 function submitAwardVote(voterId, category, targetPlayerId) {
+  if (appState.sessionData && appState.sessionData.isPaused) {
+    HapticsEngine.trigger("ERROR");
+    return alert("Game is paused for Intermission!");
+  }
+  HapticsEngine.trigger("READY");
   if (firebaseDb && appState.roomCode) {
     firebaseDb.ref(`mystery_rooms/${appState.roomCode}/awardVotes/${voterId}/${category}`).set(targetPlayerId);
     firebaseDb.ref(`mystery_rooms/${appState.roomCode}/updatedAt`).set(Date.now());
@@ -3258,6 +3603,10 @@ function revealFinalSolution() {
    6. LIVE COUNTDOWN TIMER (WITH PAUSE SUPPORT) + TIMED MID-ACT TWIST
    ============================================================================ */
 let warningPlayedForPhase = null;
+let threeMinWarningPlayedForPhase = null;
+let wasSabotageBlackoutActive = false;
+let wasSabotageOnCooldown = false;
+
 setInterval(() => {
   const badge = document.getElementById("timerBadge");
   const tvTimer = document.getElementById("tvTimerDisplay");
@@ -3266,6 +3615,9 @@ setInterval(() => {
   if (!s || (!s.phaseEndsAt && !s.isPaused) || s.round === 0 || s.round === 4) {
     if (badge) badge.classList.add("hidden");
     if (tvTimer) tvTimer.textContent = "--:--";
+    if (appState.viewMode === "tv") {
+      soundFX.evaluateEscalation(999, false, false, 0);
+    }
     return;
   }
 
@@ -3286,12 +3638,76 @@ setInterval(() => {
     tvTimer.textContent = s.isPaused ? `⏸ ${mins}:${secs}` : `${mins}:${secs}`;
   }
 
+  const blkActive = isSabotageBlackoutActive(s);
+  const blkRemSec = getSabotageBlackoutRemainingSec(s);
+  const coolRemSec = getSabotageCooldownRemainingSec(s);
+
+  const blkCountdownEl = document.getElementById("sabotageBlackoutCountdown");
+  if (blkCountdownEl) blkCountdownEl.textContent = `${blkRemSec}s`;
+
+  const coolBadgeEl = document.getElementById("killerSabotageCooldownBadge");
+  if (coolBadgeEl) {
+    if (s.isPaused) {
+      coolBadgeEl.textContent = "⏸ PAUSED";
+      coolBadgeEl.className = "text-[10px] font-mono-code px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-700";
+    } else if (coolRemSec > 0) {
+      coolBadgeEl.textContent = `⏳ COOLDOWN: ${coolRemSec}s`;
+      coolBadgeEl.className = "text-[10px] font-mono-code px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700";
+    } else {
+      coolBadgeEl.textContent = "⚡ READY";
+      coolBadgeEl.className = "text-[10px] font-mono-code px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-700 font-bold";
+    }
+  }
+
+  if (wasSabotageBlackoutActive && !blkActive) {
+    wasSabotageBlackoutActive = false;
+    renderApp();
+  } else {
+    wasSabotageBlackoutActive = blkActive;
+  }
+
+  if (wasSabotageOnCooldown && coolRemSec === 0 && !s.isPaused) {
+    wasSabotageOnCooldown = false;
+    HapticsEngine.trigger("READY");
+    renderApp();
+  } else if (coolRemSec > 0) {
+    wasSabotageOnCooldown = true;
+  }
+
+  if (appState.viewMode === "tv") {
+    soundFX.evaluateEscalation(diffSec, Boolean(s.isPaused), blkActive, s.round);
+    const escBadge = document.getElementById("tvAudioEscalationBadge");
+    if (escBadge) {
+      if (s.isPaused) {
+        escBadge.textContent = "⏸ AUDIO PAUSED";
+        escBadge.className = "text-[11px] font-mono-code px-2.5 py-1 rounded-lg bg-amber-950/90 text-amber-300 border border-amber-700";
+      } else if (blkActive) {
+        escBadge.textContent = `⚡ SABOTAGE MUFFLE (${blkRemSec}s)`;
+        escBadge.className = "text-[11px] font-mono-code px-2.5 py-1 rounded-lg bg-rose-950 text-rose-300 border border-rose-600 animate-pulse";
+      } else if (diffSec <= 60) {
+        escBadge.textContent = "💓 ESCALATION: PANIC (FINAL 60s)";
+        escBadge.className = "text-[11px] font-mono-code px-2.5 py-1 rounded-lg bg-rose-950/90 text-rose-300 border border-rose-600 animate-pulse";
+      } else if (diffSec <= 180) {
+        escBadge.textContent = "📈 ESCALATION: TENSION (<3m)";
+        escBadge.className = "text-[11px] font-mono-code px-2.5 py-1 rounded-lg bg-amber-950/90 text-amber-300 border border-amber-700";
+      } else {
+        escBadge.textContent = "🎵 ESCALATION: STEADY";
+        escBadge.className = "text-[11px] font-mono-code px-2.5 py-1 rounded-lg bg-slate-800 text-slate-400 border border-slate-700";
+      }
+    }
+  }
+
   if (!s.isPaused) {
     if (s.round === 2 && !s.midTwistTriggered && !midTwistLatch && diffSec <= 600 && diffSec > 0) {
       const me = s.players && s.players[appState.playerId];
       if (appState.viewMode === "tv" || (me && me.isHost)) {
         triggerMidRoundTwist();
       }
+    }
+
+    if (appState.viewMode === "tv" && diffSec === 180 && threeMinWarningPlayedForPhase !== s.phaseEndsAt) {
+      threeMinWarningPlayedForPhase = s.phaseEndsAt;
+      soundFX.playChime();
     }
 
     if (appState.viewMode === "tv" && diffSec === 60 && warningPlayedForPhase !== s.phaseEndsAt) {
@@ -3549,7 +3965,9 @@ function renderTVDashboard() {
   const pack = getEffectivePack(s.mysteryId, s.variantIndex);
   const playersList = Object.values(s.players || {});
   const cluesList = getCluesList(s);
-  const isBlackout = s.round === 2 && s.latestEvent && s.latestEvent.type === "blackout";
+  const isSabBlackout = isSabotageBlackoutActive(s);
+  const sabBlackoutRemSec = getSabotageBlackoutRemainingSec(s);
+  const isBlackout = (s.round === 2 && s.latestEvent && s.latestEvent.type === "blackout") || isSabBlackout;
   const accPlayer = (s.accomplicePlayerId && s.players) ? s.players[s.accomplicePlayerId] : null;
 
   const roundTitles = {
@@ -3574,6 +3992,11 @@ function renderTVDashboard() {
             <button onclick="soundFX.toggleAmbient()" class="text-xs bg-slate-800 hover:bg-slate-700 ${soundFX.ambientEnabled ? 'text-cyan-300 border-cyan-800' : 'text-slate-400 border-slate-700'} px-3 py-1 rounded-lg border">
               🎵 Ambient: ${soundFX.ambientEnabled ? 'ON (Auto-Duck)' : 'OFF'}
             </button>
+            ${s.round >= 1 && s.round <= 3 ? `
+              <span id="tvAudioEscalationBadge" class="text-[11px] font-mono-code px-2.5 py-1 rounded-lg bg-slate-800 text-slate-400 border border-slate-700">
+                🎵 ESCALATION: STEADY
+              </span>
+            ` : ""}
           </div>
           <h1 class="text-2xl lg:text-4xl font-serif-title font-extrabold text-white mt-2">${pack.title}</h1>
           <p class="text-sm text-slate-400">${pack.subtitle} • <span class="text-indigo-400 font-mono-code text-xs">3 Dynamic Killer Variants Enabled</span></p>
@@ -3585,8 +4008,8 @@ function renderTVDashboard() {
               <div class="text-xs font-mono-code text-slate-400 uppercase">Phase Timer</div>
               <div id="tvTimerDisplay" class="text-3xl lg:text-4xl font-mono-code font-bold ${s.isPaused ? 'text-rose-400 animate-pulse' : 'text-amber-400'}">--:--</div>
               <div class="flex justify-end gap-1.5 mt-1">
-                <button onclick="toggleTimerPause()" class="text-[11px] font-mono-code px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">
-                  ${s.isPaused ? '▶ Resume' : '⏸ Pause'}
+                <button onclick="toggleTimerPause()" class="text-[11px] font-mono-code px-2.5 py-0.5 rounded ${s.isPaused ? 'bg-emerald-700 text-white border-emerald-500' : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'} border font-bold">
+                  ${s.isPaused ? '▶ Resume Game' : '⏸ Intermission / Drink Run'}
                 </button>
                 <button onclick="addFiveMinutesToTimer()" class="text-[11px] font-mono-code px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700">
                   +5 Min
@@ -3801,6 +4224,39 @@ function renderTVDashboard() {
           </div>
         </div>
       </div>
+
+      ${s.isPaused && s.round >= 1 && s.round <= 3 ? `
+        <div class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-8 text-center">
+          <div class="max-w-xl w-full bg-slate-900 border-2 border-amber-500/80 rounded-3xl p-8 shadow-2xl space-y-5">
+            <span class="inline-block px-4 py-1.5 rounded-full text-xs font-mono-code font-bold uppercase tracking-widest bg-amber-950 text-amber-300 border border-amber-600">
+              ⏸ CASE PAUSED — HOST INTERMISSION
+            </span>
+            <h2 class="text-3xl lg:text-5xl font-serif-title font-extrabold text-white">Bathroom & Drink Run Break</h2>
+            <p class="text-sm lg:text-base text-slate-300 leading-relaxed">
+              All phase timers, Killer sabotage cooldowns, and 1-on-1 PIN Pat-Downs are safely frozen on every phone so nobody misses a timed twist while away from the table.
+            </p>
+            <div class="pt-2">
+              <button onclick="toggleTimerPause()" class="px-8 py-4 rounded-2xl font-bold text-base bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/50 transition">
+                ▶ Resume Investigation
+              </button>
+            </div>
+          </div>
+        </div>
+      ` : ""}
+
+      ${!s.isPaused && isSabBlackout ? `
+        <div class="fixed inset-0 z-40 bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center p-8 text-center sabotage-glitch-overlay pointer-events-none">
+          <div class="max-w-xl w-full bg-rose-950/90 border-2 border-rose-500 rounded-3xl p-8 shadow-2xl space-y-4">
+            <span class="inline-block px-4 py-1 rounded-full text-xs font-mono-code font-bold uppercase tracking-widest bg-black text-rose-400 border border-rose-500">
+              ⚡ COVERT KILLER SABOTAGE ACTIVE
+            </span>
+            <h2 class="text-3xl lg:text-5xl font-serif-title font-extrabold text-white tracking-wider">POWER GRID BLACKOUT</h2>
+            <p class="text-sm lg:text-base text-rose-200 leading-relaxed">
+              The Killer sabotaged the room's security grid! 1-on-1 Suspect Pat-Down terminals are locked out on all phones for <strong id="sabotageBlackoutCountdown" class="text-amber-300 font-mono-code text-lg">${sabBlackoutRemSec}s</strong>!
+            </p>
+          </div>
+        </div>
+      ` : ""}
     </div>
   `;
 }
@@ -3864,6 +4320,11 @@ function renderMobileCorkboard(s, pack, activeSuspects) {
   Object.values(s.players || {}).forEach(p => {
     if (p.characterId) playersByChar[p.characterId] = p;
   });
+  const me = s.players && s.players[appState.playerId];
+  const myChar = (me && me.characterId) ? pack.characters.find(c => c.id === me.characterId) : null;
+  const isKiller = myChar && myChar.role === "killer";
+  const coolSec = getSabotageCooldownRemainingSec(s);
+  const myDecoys = getPlayerDecoysList(me);
 
   const statusMeta = {
     "suspect": { label: "❓ Suspect", badge: "bg-amber-950/90 text-amber-300 border-amber-700", border: "border-slate-800" },
@@ -3883,6 +4344,39 @@ function renderMobileCorkboard(s, pack, activeSuspects) {
 
       ${appState.corkboardOpen ? `
         <div class="p-3.5 space-y-2.5 border-t border-slate-800 bg-slate-950/60">
+          ${isKiller ? `
+            <div class="p-3 rounded-xl bg-rose-950/30 border border-dashed border-rose-700/70 space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-mono-code font-bold text-rose-300 uppercase">🔪 Covert Sabotage (Disguised in Corkboard)</span>
+                <span id="killerSabotageCooldownBadge" class="text-[10px] font-mono-code px-2 py-0.5 rounded ${s.isPaused ? 'bg-amber-950 text-amber-300 border border-amber-700' : (coolSec > 0 ? 'bg-slate-800 text-slate-400 border border-slate-700' : 'bg-emerald-950 text-emerald-300 border border-emerald-700 font-bold')}">
+                  ${s.isPaused ? "⏸ PAUSED" : (coolSec > 0 ? `⏳ COOLDOWN: ${coolSec}s` : "⚡ READY")}
+                </span>
+              </div>
+              <p class="text-[11px] text-slate-400 leading-snug">
+                Trigger a 20s TV/Pat-Down Blackout or secretly slip a plausible Red Herring tip into an innocent player's phone (90s cooldown).
+              </p>
+              <div class="grid grid-cols-2 gap-2">
+                <button type="button" onclick="triggerKillerSabotage('BLACKOUT')" ${coolSec > 0 || s.isPaused ? 'disabled' : ''} class="py-2 px-2.5 rounded-lg text-xs font-bold bg-slate-900 hover:bg-rose-900/80 text-rose-200 border border-rose-800/80 disabled:opacity-40 transition">
+                  ⚡ 20s TV Blackout
+                </button>
+                <button type="button" onclick="triggerKillerSabotage('PLANT_DECOY')" ${coolSec > 0 || s.isPaused ? 'disabled' : ''} class="py-2 px-2.5 rounded-lg text-xs font-bold bg-slate-900 hover:bg-amber-900/80 text-amber-200 border border-amber-800/80 disabled:opacity-40 transition">
+                  🕵️ Plant Red Herring
+                </button>
+              </div>
+            </div>
+          ` : ""}
+
+          ${myDecoys.length > 0 ? `
+            <div class="space-y-1.5">
+              ${myDecoys.map(d => `
+                <div class="p-2.5 rounded-xl bg-amber-950/30 border border-amber-700/70 text-xs text-amber-200">
+                  <div class="font-mono-code font-bold text-[10px] text-amber-400">${escapeHtml(d.title)}</div>
+                  <p class="mt-0.5 text-slate-200">${escapeHtml(d.detail)}</p>
+                </div>
+              `).join("")}
+            </div>
+          ` : ""}
+
           <p class="text-[11px] text-slate-400">
             Tap any suspect's badge to cycle <strong>Suspect → Cleared → Prime Target</strong> and jot down private alibi notes (100% private to your phone).
           </p>
@@ -3943,8 +4437,23 @@ function renderMobilePlayerView() {
   const accomplicePlayer = (s.accomplicePlayerId && s.players) ? s.players[s.accomplicePlayerId] : null;
   const isMeGhost = s.round >= 2 && myChar && myChar.role === "victim";
 
+  const isSabBlackout = isSabotageBlackoutActive(s);
+  const sabBlackoutRemSec = getSabotageBlackoutRemainingSec(s);
+
   return `
     <div class="max-w-md mx-auto w-full p-4 space-y-4 pb-16">
+      ${s.isPaused && s.round >= 1 && s.round <= 3 ? `
+        <div class="bg-amber-950/95 border-2 border-amber-500 rounded-2xl p-3.5 text-center space-y-1 shadow-xl">
+          <div class="text-xs font-mono-code font-bold uppercase text-amber-300">⏸ HOST INTERMISSION — DRINK & BATHROOM BREAK</div>
+          <p class="text-[11px] text-slate-200 leading-snug">All phase timers, cooldowns, and 1-on-1 PIN Pat-Downs are frozen until the Host resumes.</p>
+        </div>
+      ` : isSabBlackout ? `
+        <div class="bg-rose-950/95 border-2 border-rose-500 rounded-2xl p-3.5 text-center space-y-1 shadow-xl sabotage-glitch-overlay">
+          <div class="text-xs font-mono-code font-bold uppercase text-rose-300">⚡ POWER SABOTAGED (<span id="sabotageBlackoutCountdown">${sabBlackoutRemSec}s</span>)</div>
+          <p class="text-[11px] text-rose-100 leading-snug">Security grid offline! 1-on-1 PIN Pat-Downs are locked out while emergency power reboots.</p>
+        </div>
+      ` : ""}
+
       <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-lg">
         <div class="flex items-center justify-between">
           <span class="text-xs font-mono-code px-2 py-0.5 rounded border ${pack.badgeColor}">${pack.title}</span>
@@ -4121,8 +4630,8 @@ function renderMobilePlayerView() {
             </p>
             <div class="flex gap-2">
               <input id="patDownPinInput" type="text" inputmode="numeric" maxlength="4" placeholder="2-Digit PIN" class="w-32 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm font-mono-code text-center text-amber-300 focus:outline-none focus:border-indigo-500" />
-              <button onclick="executePinPatDown()" ${(me.patDownTokens ?? 1) <= 0 ? 'disabled' : ''} class="flex-1 py-2 px-3 rounded-xl font-bold text-xs ${(me.patDownTokens ?? 1) <= 0 ? 'bg-slate-800 text-slate-500' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}">
-                🔎 Unlock Private Pat-Down
+              <button onclick="executePinPatDown()" ${(me.patDownTokens ?? 1) <= 0 || s.isPaused || isSabBlackout ? 'disabled' : ''} class="flex-1 py-2 px-3 rounded-xl font-bold text-xs ${(me.patDownTokens ?? 1) <= 0 || s.isPaused || isSabBlackout ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}">
+                ${s.isPaused ? '⏸ Paused' : (isSabBlackout ? '⚡ Locked (Blackout)' : '🔎 Unlock Private Pat-Down')}
               </button>
             </div>
 
@@ -4235,7 +4744,7 @@ function renderMobilePlayerView() {
           ${s.round >= 1 && s.round <= 3 ? `
             <div class="flex gap-2 pb-2 border-b border-slate-800">
               <button onclick="toggleTimerPause()" class="flex-1 py-2 rounded-xl text-xs font-bold ${s.isPaused ? 'bg-emerald-700 text-white' : 'bg-slate-800 text-slate-200 border border-slate-700'}">
-                ${s.isPaused ? '▶ Resume Timer' : '⏸ Pause Timer'}
+                ${s.isPaused ? '▶ Resume Game' : '⏸ Intermission Pause'}
               </button>
               <button onclick="addFiveMinutesToTimer()" class="py-2 px-3 rounded-xl text-xs font-bold bg-slate-800 text-amber-300 border border-slate-700">
                 ⏱ +5 Minutes
