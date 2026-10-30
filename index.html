@@ -181,7 +181,7 @@ document.addEventListener("visibilitychange", () => {
 });
 
 /* ============================================================================
-   2. ALL 5 MYSTERY CARTRIDGES + 3 KILLER VARIANTS + TIMED MID-ACT TWISTS
+   2. ALL 7 MYSTERY CARTRIDGES (21 ENDINGS) + 3 KILLER VARIANTS + TIMED MID-ACT TWISTS
    ============================================================================ */
 const MYSTERY_PACKS = {
   "reunion_99": {
@@ -344,7 +344,7 @@ const MYSTERY_PACKS = {
         "overrides": {
           "c_sus1": {
             "act2Prompt": "Deny opening your lab briefcase! Claim someone else must have stolen a syringe from your car, and blame Gavin for hating Chadwick!",
-            "searchClue": "SEARCH OF SKYLAR'S BRIEFCASE (SMOKING GUN): Hidden false bottom contains a used 28-gauge micro-syringe of Aconite, nitric acid dropper, torn Valedictorian ribbon, and Folder #09!"
+            "searchClue": "SEARCH OF NADIA'S BRIEFCASE (SMOKING GUN): Hidden false bottom contains a used 28-gauge micro-syringe of Aconite, nitric acid dropper, torn Valedictorian ribbon, and Folder #09!"
           }
         }
       },
@@ -376,7 +376,7 @@ const MYSTERY_PACKS = {
         "overrides": {
           "c_sus3": {
             "act2Prompt": "Admit you pulled the light breaker at 9:14 PM as a prank, but swear you never went backstage at 9:05 PM! Blame Nadia for the poison!",
-            "searchClue": "SEARCH OF DAMIEN'S TRENCH COAT (SMOKING GUN): Contains a custom RFID lock-hacker, a vial of semiconductor Thallium, a scratched black-titanium ring, and stolen Floppy Disk #99!"
+            "searchClue": "SEARCH OF GIDEON'S TRENCH COAT (SMOKING GUN): Contains a custom RFID lock-hacker, a vial of semiconductor Thallium, a scratched black-titanium ring, and stolen Floppy Disk #99!"
           }
         }
       },
@@ -408,7 +408,7 @@ const MYSTERY_PACKS = {
         "overrides": {
           "c_killer": {
             "act2Prompt": "Deny going near Chadwick's cooler! Claim you were behind the bleachers re-stringing your acoustic guitar between 9:00 and 9:12 PM. Blame Nadia for the cyanide!",
-            "searchClue": "SEARCH OF ZACK'S GIG BAG (SMOKING GUN): Contains heavy bolt cutters, an acoustic guitar missing its high-E string, purple glitter ink on his flannel cuff, and Cassette #14!"
+            "searchClue": "SEARCH OF GAVIN'S GIG BAG (SMOKING GUN): Contains heavy bolt cutters, an acoustic guitar missing its high-E string, purple glitter ink on his flannel cuff, and Cassette #14!"
           }
         }
       }
@@ -574,7 +574,7 @@ const MYSTERY_PACKS = {
         "overrides": {
           "c_sus1": {
             "act2Prompt": "Deny going near Pod B! Claim you were strapping down fuel pods in the Hangar, and blame Victoria or Dr. Selene for the sabotage!",
-            "searchClue": "SEARCH OF JAX'S FLIGHT JACKET (SMOKING GUN): Contains a Pirate Bypass Dongle, a torn right fingerless leather glove stained with hydrazine, and the key to Weapons Crate #99!"
+            "searchClue": "SEARCH OF ROCCO'S FLIGHT JACKET (SMOKING GUN): Contains a Pirate Bypass Dongle, a torn right fingerless leather glove stained with hydrazine, and the key to Weapons Crate #99!"
           }
         }
       },
@@ -606,7 +606,7 @@ const MYSTERY_PACKS = {
         "overrides": {
           "c_sus3": {
             "act2Prompt": "Insist your hologram call in the VIP Lounge proves you were busy at 21:15! Blame Bram for the thermal purge malfunction!",
-            "searchClue": "SEARCH OF SLOANE'S SUIT & LOUNGE (SMOKING GUN): The VIP hologram call was a pre-recorded loop! Victoria's sleeve is missing one platinum cufflink, smells of Earth cigar ash, and Watch #EXEC-01 logged the Pod B purge!"
+            "searchClue": "SEARCH OF VICTORIA'S SUIT & LOUNGE (SMOKING GUN): The VIP hologram call was a pre-recorded loop! Victoria's sleeve is missing one platinum cufflink, smells of Earth cigar ash, and Watch #EXEC-01 logged the Pod B purge!"
           }
         }
       },
@@ -638,7 +638,7 @@ const MYSTERY_PACKS = {
         "overrides": {
           "c_killer": {
             "act2Prompt": "Deny going near Pod B! Claim you were in MedBay checking the Android, and blame Rocco for smuggling or Bram for the weld!",
-            "searchClue": "SEARCH OF DR. LYRA'S LAB COAT (SMOKING GUN): Contains Level-4 Bio-Key #SCI-04, a surgical micro-plasma pen, and glowing blue Martian spore dust under UV light!"
+            "searchClue": "SEARCH OF DR. SELENE'S LAB COAT (SMOKING GUN): Contains Level-4 Bio-Key #SCI-04, a surgical micro-plasma pen, and glowing blue Martian spore dust under UV light!"
           }
         }
       }
@@ -663,7 +663,7 @@ const MYSTERY_PACKS = {
         "bio": "Heir to the Beaumont hotel empire. You're intolerable, tanned, and you just discovered someone on this yacht is defrauding you out of millions.",
         "act1Prompt": "Treat everyone like staff, demand your sunset smoky mezcal negroni, and warn Fabian, Genevieve, and Zephyr that your Zurich lawyers are exposing their financial crimes when you dock in Capri!",
         "deathScript": "DROP YOUR COCKTAIL GLASS! Clench your chest dramatically and cry: 'My sunset mezcal... someone poisoned the glass on the sundeck!' Collapse onto a lounger, then take over as the Interpol Yacht Investigator!",
-        "publicAlibi": "JULIAN'S ZURICH TABLET: Shows Sebastian was about to cut off and prosecute a member of the party for a multi-million-euro fraud tonight.",
+        "publicAlibi": "SEBASTIAN'S ZURICH TABLET: Shows Sebastian was about to cut off and prosecute a member of the party for a multi-million-euro fraud tonight.",
         "searchClue": "Sebastian's Final Lawyer Audio Note: 'Match the toxicology of my cocktail glass with the physical trace left in the sundeck VIP pantry.'"
       },
       {
@@ -804,7 +804,7 @@ const MYSTERY_PACKS = {
         "overrides": {
           "c_sus1": {
             "act2Prompt": "Claim your diamond bracelet broke on the lower deck and swear Fabian poured the drink! Blame Tristan or Fabian for hating Sebastian!",
-            "searchClue": "SEARCH OF BLAIR'S CAFTAN & PURSE (SMOKING GUN): Her Cartier bracelet is missing the exact diamond link found at the scene, her purse holds the Swiss Digitalis prescription receipt, and she inherits 50M Euros!"
+            "searchClue": "SEARCH OF GENEVIEVE'S CAFTAN & PURSE (SMOKING GUN): Her Cartier bracelet is missing the exact diamond link found at the scene, her purse holds the Swiss Digitalis prescription receipt, and she inherits 50M Euros!"
           }
         }
       },
@@ -836,7 +836,7 @@ const MYSTERY_PACKS = {
         "overrides": {
           "c_sus2": {
             "act2Prompt": "Insist your holistic tinctures are 100% peaceful herbs and claim you were meditating on the bow! Blame Fabian for preparing the drink!",
-            "searchClue": "SEARCH OF BODHI'S TUNIC & POUCH (SMOKING GUN): His sandalwood wrist mala is missing a bead, his pouch holds the matching 'Chakra-Root #9' monkshood dropper and a $5M stolen crypto hardware wallet!"
+            "searchClue": "SEARCH OF ZEPHYR'S TUNIC & POUCH (SMOKING GUN): His sandalwood wrist mala is missing a bead, his pouch holds the matching 'Chakra-Root #9' monkshood dropper and a $5M stolen crypto hardware wallet!"
           }
         }
       },
@@ -868,7 +868,7 @@ const MYSTERY_PACKS = {
         "overrides": {
           "c_killer": {
             "act2Prompt": "Claim you handed Sebastian's drink to Genevieve on the stairs at 7:10 PM! Blame Zephyr for the botanical poison!",
-            "searchClue": "SEARCH OF ARMAND'S BLAZER (SMOKING GUN): Missing his Naples silk 'F.D.' pocket square, cuffs smell of crushed oleander sap and 24k bitters, and carries Master Keycard #01!"
+            "searchClue": "SEARCH OF FABIAN'S BLAZER (SMOKING GUN): Missing his Naples silk 'F.D.' pocket square, cuffs smell of crushed oleander sap and 24k bitters, and carries Master Keycard #01!"
           }
         }
       }
@@ -893,7 +893,7 @@ const MYSTERY_PACKS = {
         "bio": "You enforce quiet hours at 9:00 PM sharp with a decibel meter. Tonight you caught a camper committing a massive felony and wrote it on Citation #099.",
         "act1Prompt": "Hand out petty camp citations and announce you're calling the Authorities at 9:35 PM about Citation #099 unless the culprit confesses!",
         "deathScript": "JOLT VIOLENTLY! Yell: 'Someone rigged Site 14... Check Citation #099 on my clipboard!' Drop your clipboard and return as the Ghost Park Ranger Investigator!",
-        "publicAlibi": "CHET'S CARBON-COPY CLIPBOARD: Page #099 was ripped out by the killer, but the carbon imprint proves Barnaby caught someone committing a felony behind Site 14.",
+        "publicAlibi": "BARNABY'S CARBON-COPY CLIPBOARD: Page #099 was ripped out by the killer, but the carbon imprint proves Barnaby caught someone committing a felony behind Site 14.",
         "searchClue": "Barnaby's Waterproof Memo: 'Match the physical boot/glove trace behind the Site 14 pedestal with the missing Citation #099.'"
       },
       {
@@ -1034,7 +1034,7 @@ const MYSTERY_PACKS = {
         "overrides": {
           "c_sus2": {
             "act2Prompt": "Insist you only pick harmless chanterelles and claim you were at the picnic pavilion! Blame Colton for tampering with Site 14!",
-            "searchClue": "SEARCH OF DUSTY'S SATCHEL (SMOKING GUN): Hidden burlap compartment holds poached endangered orchids, a vial of 'Destroying Angel' extract, huckleberry syrup, and Citation #099!"
+            "searchClue": "SEARCH OF FORREST'S SATCHEL (SMOKING GUN): Hidden burlap compartment holds poached endangered orchids, a vial of 'Destroying Angel' extract, huckleberry syrup, and Citation #099!"
           }
         }
       },
@@ -1066,7 +1066,7 @@ const MYSTERY_PACKS = {
         "overrides": {
           "c_sus4": {
             "act2Prompt": "Claim you were at the front lodge check-in desk all night! Blame Colton or Buckley for rigging the power pedestal!",
-            "searchClue": "SEARCH OF SIERRA'S JACKET & DESK (SMOKING GUN): Her denim sleeve is missing the 'Whispering Pines' patch found in the mud, she carries Brass Master Key #01, a lavender vape pen, and the embezzled ledger!"
+            "searchClue": "SEARCH OF DAKOTA'S JACKET & DESK (SMOKING GUN): Her denim sleeve is missing the 'Whispering Pines' patch found in the mud, she carries Brass Master Key #01, a lavender vape pen, and the embezzled ledger!"
           }
         }
       },
@@ -1098,7 +1098,7 @@ const MYSTERY_PACKS = {
         "overrides": {
           "c_killer": {
             "act2Prompt": "Claim you were inside your rooftop tent brewing espresso! Blame Buckley for overloading the power grid!",
-            "searchClue": "SEARCH OF BROOKS'S RIG & BOOTS (SMOKING GUN): Size-10 Vibram boots caked in cedar sawdust & blue lithium grease; pouch holds wire crimpers with orange marine shavings and OverlandPro tape!"
+            "searchClue": "SEARCH OF COLTON'S RIG & BOOTS (SMOKING GUN): Size-10 Vibram boots caked in cedar sawdust & blue lithium grease; pouch holds wire crimpers with orange marine shavings and OverlandPro tape!"
           }
         }
       }
@@ -1264,7 +1264,7 @@ const MYSTERY_PACKS = {
         "overrides": {
           "c_sus1": {
             "act2Prompt": "Claim you were upstairs on the balcony and swear your heirloom key is just jewelry! Blame Alistair for the counterfeit bottles!",
-            "searchClue": "SEARCH OF CAMILLE'S PURSE & DRESS (SMOKING GUN): Her black lace sleeve is torn, her bronze heirloom key has green verdigris matching Barrel #01, and her purse holds the 1920s copper-arsenate vial & fig glaze!"
+            "searchClue": "SEARCH OF SERAPHINA'S PURSE & DRESS (SMOKING GUN): Her black lace sleeve is torn, her bronze heirloom key has green verdigris matching Barrel #01, and her purse holds the 1920s copper-arsenate vial & fig glaze!"
           }
         }
       },
@@ -1296,7 +1296,7 @@ const MYSTERY_PACKS = {
         "overrides": {
           "c_sus2": {
             "act2Prompt": "Insist your vineyard is 100% organic and claim you were by the cheese table! Blame Alistair or Seraphina for the poison!",
-            "searchClue": "SEARCH OF DANTE'S WAISTCOAT (SMOKING GUN): Missing one brown tweed button, pockets contain a vial of black-leaf nicotine-sulfate, blackberry compote, and the failed organic lab report!"
+            "searchClue": "SEARCH OF MATTEO'S WAISTCOAT (SMOKING GUN): Missing one brown tweed button, pockets contain a vial of black-leaf nicotine-sulfate, blackberry compote, and the failed organic lab report!"
           }
         }
       },
@@ -1328,7 +1328,7 @@ const MYSTERY_PACKS = {
         "overrides": {
           "c_killer": {
             "act2Prompt": "Claim you were admiring the 1945 rack in the east alcove! Blame Seraphina for hating Etienne!",
-            "searchClue": "SEARCH OF VICTOR'S VALISE (SMOKING GUN): Contains a heat-gun nozzle coated in synthetic crimson polymer wax, dark-cherry culinary glaze, and white sulfite powder residue!"
+            "searchClue": "SEARCH OF ALISTAIR'S VALISE (SMOKING GUN): Contains a heat-gun nozzle coated in synthetic crimson polymer wax, dark-cherry culinary glaze, and white sulfite powder residue!"
           }
         }
       }
@@ -1430,7 +1430,7 @@ const MYSTERY_PACKS = {
       },
       {
         "id": "c_sus6",
-        "name": "Dr. Dr. Thaddeus Finch (Live-In Concierge Physician)",
+        "name": "Dr. Thaddeus Finch (Live-In Concierge Physician)",
         "role": "suspect",
         "essential": false,
         "costume": "Tweed vest, stethoscope in pocket, vintage leather doctor bag.",
@@ -1800,8 +1800,8 @@ const MYSTERY_PACKS = {
     "subtitle": "All Hallows' Eve Lockdown inside the Condemned 1888 Blackwood Asylum & Mansion",
     "accent": "from-purple-800 to-rose-950",
     "badgeColor": "bg-purple-950 text-purple-300 border-purple-700",
-    "soundProfile": "scream",
-    "ambientProfile": "haunted",
+    "soundProfile": "thunder",
+    "ambientProfile": "manor",
     "settingIntro": "The iron gates of Blackwood House just welded shut at the stroke of midnight. Celebrity paranormal investigator Thaddeus Vance invited nine guests into the blood-soaked S\u00e9ance Rotunda to expose a century-old curse\u2014and someone's dark, real-world felony. When the candles blow out, the spirits aren't the only ones out for blood.",
     "characters": [
       {
@@ -2216,6 +2216,32 @@ class SoundEngine {
     this.currentAmbientProfile = null;
   }
 
+  stopAll() {
+    this.stopAmbient();
+    if (this.ttsWatchdog) {
+      clearTimeout(this.ttsWatchdog);
+      this.ttsWatchdog = null;
+    }
+    if (this.pendingBulletinTimeout) {
+      clearTimeout(this.pendingBulletinTimeout);
+      this.pendingBulletinTimeout = null;
+    }
+    this.ttsQueue = [];
+    this.isSpeakingCloud = false;
+    this.isPlayingMajorVO = false;
+    [this.audioPlayer, this.sfxAudioEl].forEach(el => {
+      try {
+        el.onended = null;
+        el.onerror = null;
+        el.pause();
+        el.currentTime = 0;
+      } catch (e) {}
+    });
+    if ("speechSynthesis" in window) {
+      try { window.speechSynthesis.cancel(); } catch (e) {}
+    }
+  }
+
   toggleAmbient() {
     this.ambientEnabled = !this.ambientEnabled;
     if (!this.ambientEnabled) {
@@ -2397,21 +2423,35 @@ class SoundEngine {
   speakBulletin(text, mp3Filename = null) {
     if (this.isMuted || (!text && !mp3Filename)) return;
     if (mp3Filename) {
+      if (this.ttsWatchdog) {
+        clearTimeout(this.ttsWatchdog);
+        this.ttsWatchdog = null;
+      }
+      this.ttsQueue = [];
       this.isSpeakingCloud = true;
+      this.isPlayingMajorVO = true;
       this.duckAmbient(true);
       this.audioPlayer.src = `./audio/${mp3Filename}`;
       this.audioPlayer.onended = () => {
         this.isSpeakingCloud = false;
+        this.isPlayingMajorVO = false;
         this.duckAmbient(false);
       };
       this.audioPlayer.onerror = () => {
         this.isSpeakingCloud = false;
+        this.isPlayingMajorVO = false;
         this.speakBulletin(text, null);
       };
       this.audioPlayer.play().catch(() => {
         this.isSpeakingCloud = false;
+        this.isPlayingMajorVO = false;
         this.speakBulletin(text, null);
       });
+      return;
+    }
+
+    // Do not interrupt a major pre-recorded MP3 narration with minor clue TTS
+    if (this.isPlayingMajorVO && !this.audioPlayer.paused) {
       return;
     }
 
@@ -2943,7 +2983,13 @@ function handleIncomingSessionUpdate(newSession) {
     if (appState.viewMode === "tv") {
       if (ev.type === "blackout" || ev.type === "sabotage_blackout") {
         soundFX.playBlackoutFX(pack ? pack.soundProfile : "siren");
-        setTimeout(() => soundFX.speakBulletin(ev.speechText || ev.text, ev.mp3File), 1600);
+        if (soundFX.pendingBulletinTimeout) clearTimeout(soundFX.pendingBulletinTimeout);
+        soundFX.pendingBulletinTimeout = setTimeout(() => {
+          soundFX.pendingBulletinTimeout = null;
+          if (appState.viewMode === "tv") {
+            soundFX.speakBulletin(ev.speechText || ev.text, ev.mp3File);
+          }
+        }, 1600);
       } else if (ev.type === "clue" || ev.type === "phase" || ev.type === "twist") {
         soundFX.playChime();
         if (ev.speechText || ev.mp3File) soundFX.speakBulletin(ev.speechText || ev.text, ev.mp3File);
@@ -3369,7 +3415,10 @@ function assignCharactersAndStartAct1() {
 
   const victimChar = pack.characters.find(c => c.role === "victim") || pack.characters[0];
   const killerChar = pack.characters.find(c => c.role === "killer") || pack.characters[1];
-  const remainingSuspects = pack.characters.filter(c => c.id !== victimChar.id && c.id !== killerChar.id);
+  const variantKillerIds = new Set((pack.variants || []).map(v => v.killerId));
+  const prioritySuspects = pack.characters.filter(c => c.id !== victimChar.id && c.id !== killerChar.id && variantKillerIds.has(c.id));
+  const otherSuspects = pack.characters.filter(c => c.id !== victimChar.id && c.id !== killerChar.id && !variantKillerIds.has(c.id));
+  const remainingSuspects = [...prioritySuspects, ...otherSuspects];
   const pool = [victimChar, killerChar, ...remainingSuspects.slice(0, Math.max(0, playerIds.length - 2))];
   const shuffledChars = pool.sort(() => Math.random() - 0.5);
 
@@ -3694,8 +3743,7 @@ function advanceToAct3Voting() {
     }
   });
 
-  const activeSuspects = getAssignedSuspectCharacters(s, pack);
-  activeSuspects.forEach((charObj, idx) => {
+  pack.characters.slice(1).forEach((charObj, idx) => {
     const cid = "search_" + charObj.id;
     if (!s.publicClues[cid]) {
       const shortName = charObj.name.split("(")[0].trim();
@@ -3976,7 +4024,7 @@ function updateModeBadge() {
 }
 
 function resetToHome() {
-  soundFX.stopAmbient();
+  soundFX.stopAll();
   if (roomRef) {
     roomRef.off();
     roomRef = null;
@@ -4047,7 +4095,7 @@ function renderHomeLauncher() {
   return `
     <div class="max-w-5xl mx-auto w-full px-4 py-8 flex-1 flex flex-col justify-center">
       <div class="text-center mb-8">
-        <span class="px-3 py-1 rounded-full text-xs font-mono-code uppercase tracking-widest bg-rose-950/80 text-rose-300 border border-rose-800/60">24 Endings • Noir Mugshots • Red-String Corkboard • Auto-Ducking Audio</span>
+        <span class="px-3 py-1 rounded-full text-xs font-mono-code uppercase tracking-widest bg-rose-950/80 text-rose-300 border border-rose-800/60">21 Endings • Noir Mugshots • Red-String Corkboard • Auto-Ducking Audio</span>
         <h1 class="text-3xl md:text-5xl font-serif-title font-extrabold text-white mt-3 tracking-tight">MURDER MYSTERY PARTY ENGINE</h1>
         <p class="text-slate-400 text-sm md:text-base mt-2 max-w-2xl mx-auto">
           Snap a live Noir Mugshot on your phone, track alibis on your private Red-String Corkboard, and watch the Smart TV broadcast auto-ducking breaking news twists.
@@ -4111,7 +4159,7 @@ function renderHomeLauncher() {
             </div>
             <h2 class="text-2xl font-bold text-white mb-2">Host a New Mystery Party</h2>
             <p class="text-xs text-slate-400 mb-4 leading-relaxed">
-              Select any of the 8 mystery cartridges below. Clicking <strong>Launch TV Display</strong> unlocks Smart TV Cloud-TTS voice, themed background ambiance, and QR code join.
+              Select any of the 7 mystery cartridges below. Clicking <strong>Launch TV Display</strong> unlocks Smart TV Cloud-TTS voice, themed background ambiance, and QR code join.
             </p>
             <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Choose Mystery Cartridge (3 Killers Each):</label>
             <select id="launchMysterySelect" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-emerald-500 mb-5">
