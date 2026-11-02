@@ -74,11 +74,10 @@
     </div>
     <div class="flex items-center gap-2">
       <span id="timerBadge" class="hidden font-mono-code text-xs md:text-sm bg-slate-800 text-amber-300 border border-slate-700 px-2.5 py-1 rounded">00:00</span>
-      <span id="roomCodeBadge" class="hidden font-mono-code text-xs md:text-sm bg-indigo-950/90 text-indigo-300 border border-indigo-700/60 px-2.5 py-1 rounded">ROOM: ----</span>
       <button id="claimHostTopBtn" onclick="claimHostRole()" class="hidden text-xs bg-amber-950/80 hover:bg-amber-900 text-amber-300 px-2.5 py-1 rounded border border-amber-700/70 transition">
         👑 Claim Host
       </button>
-      <button onclick="resetToHome()" class="text-xs bg-rose-950/70 hover:bg-rose-900 text-rose-300 px-2.5 py-1 rounded border border-rose-800/60 transition">
+      <button id="exitRoomBtn" onclick="resetToHome()" class="hidden text-xs bg-rose-950/70 hover:bg-rose-900 text-rose-300 px-2.5 py-1 rounded border border-rose-800/60 transition">
         Exit
       </button>
     </div>
@@ -3011,9 +3010,13 @@ function initSyncBackend() {
 
 function subscribeToRoom(code, onFirstLoadCallback) {
   appState.roomCode = code.toUpperCase();
-  const badge = document.getElementById("roomCodeBadge");
-  badge.textContent = `ROOM: ${appState.roomCode}`;
-  badge.classList.remove("hidden");
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.set("room", appState.roomCode);
+    if (appState.viewMode === "tv") url.searchParams.set("tv", "1");
+    else url.searchParams.delete("tv");
+    window.history.replaceState({}, "", url.toString());
+  } catch (e) {}
 
   let firstCallbackFired = false;
 
@@ -4100,18 +4103,25 @@ function getAssignedSuspectCharacters(s, pack) {
 function updateModeBadge() {
   const el = document.getElementById("modeBadge");
   const hostBtn = document.getElementById("claimHostTopBtn");
-  if (appState.viewMode === "tv") {
+  const timerBadge = document.getElementById("timerBadge");
+  const exitBtn = document.getElementById("exitRoomBtn");
+
+  if (appState.viewMode === "home") {
+    if (el) el.classList.add("hidden");
+    if (hostBtn) hostBtn.classList.add("hidden");
+    if (timerBadge) timerBadge.classList.add("hidden");
+    if (exitBtn) exitBtn.classList.add("hidden");
+  } else if (appState.viewMode === "tv") {
     if (el) {
       el.textContent = "SMART TV DISPLAY";
       el.classList.remove("hidden");
     }
     if (hostBtn) hostBtn.classList.add("hidden");
+    if (exitBtn) exitBtn.classList.remove("hidden");
   } else if (appState.viewMode === "player") {
     if (el) el.classList.add("hidden");
     if (hostBtn) hostBtn.classList.remove("hidden");
-  } else {
-    if (el) el.classList.add("hidden");
-    if (hostBtn) hostBtn.classList.add("hidden");
+    if (exitBtn) exitBtn.classList.remove("hidden");
   }
 }
 
@@ -4121,7 +4131,12 @@ function resetToHome() {
     roomRef.off();
     roomRef = null;
   }
-  document.getElementById("roomCodeBadge").classList.add("hidden");
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("room");
+    url.searchParams.delete("tv");
+    window.history.replaceState({}, "", url.toString());
+  } catch (e) {}
   document.getElementById("timerBadge").classList.add("hidden");
   appState.viewMode = "home";
   updateModeBadge();
@@ -4389,11 +4404,11 @@ function renderTVDashboard() {
               </div>
             </div>
           ` : ""}
-          <div class="text-right">
-            <div class="text-xs font-mono-code text-slate-400 uppercase">Room Code</div>
-            <div class="text-3xl lg:text-5xl font-mono-code font-extrabold text-indigo-400 tracking-widest">${escapeHtml(s.roomCode)}</div>
-          </div>
           ${s.round !== 0 ? `
+            <div class="text-right">
+              <div class="text-xs font-mono-code text-slate-400 uppercase">Room Code</div>
+              <div class="text-3xl lg:text-5xl font-mono-code font-extrabold text-indigo-400 tracking-widest">${escapeHtml(s.roomCode)}</div>
+            </div>
             <div id="tvQrContainer" class="tvQrTarget bg-white p-2.5 rounded-2xl shadow-md shrink-0"></div>
           ` : ""}
         </div>
@@ -4603,7 +4618,7 @@ function renderTVDashboard() {
 
           <div class="mt-4 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 overflow-hidden">
             <div class="ticker-move text-xs font-mono-code text-amber-300">
-              ${escapeHtml(s.latestEvent ? s.latestEvent.text : "Waiting for party to start...")} • ROOM CODE: ${escapeHtml(s.roomCode)} • MYSTERY: ${escapeHtml(pack.title)}
+              ${escapeHtml(s.latestEvent ? s.latestEvent.text : "Waiting for party to start...")}
             </div>
           </div>
         </div>
@@ -5193,6 +5208,11 @@ window.addEventListener("DOMContentLoaded", () => {
   initSyncBackend();
   const params = new URLSearchParams(window.location.search);
   const roomFromQR = params.get("room");
+  const isTvReconnect = params.get("tv") === "1";
+  if (roomFromQR && isTvReconnect) {
+    joinExistingRoom(roomFromQR.toUpperCase(), "", "tv");
+    return;
+  }
   if (roomFromQR) {
     appState.roomCode = roomFromQR.toUpperCase();
     appState.qrScannedRoom = true;
