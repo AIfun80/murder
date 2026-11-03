@@ -61,6 +61,23 @@
     .sabotage-glitch-overlay {
       animation: sabotageFlicker 0.18s infinite alternate;
     }
+
+    /* Smart TV Viewport-Lock (Zero Page Scroll on TV) */
+    body.tv-mode-locked {
+      height: 100dvh;
+      max-height: 100dvh;
+      overflow: hidden;
+    }
+    body.tv-mode-locked #appRoot {
+      height: calc(100dvh - 45px);
+      max-height: calc(100dvh - 45px);
+      overflow: hidden;
+    }
+    .tvQrTarget img, .tvQrTarget canvas {
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: contain;
+    }
   </style>
 </head>
 <body class="min-h-screen flex flex-col bg-slate-950 text-slate-100 select-none">
@@ -4049,25 +4066,6 @@ setInterval(() => {
 
   if (appState.viewMode === "tv") {
     soundFX.evaluateEscalation(diffSec, Boolean(s.isPaused), blkActive, s.round);
-    const escBadge = document.getElementById("tvAudioEscalationBadge");
-    if (escBadge) {
-      if (s.isPaused) {
-        escBadge.textContent = "⏸ AUDIO PAUSED";
-        escBadge.className = "text-[11px] font-mono-code px-2.5 py-1 rounded-lg bg-amber-950/90 text-amber-300 border border-amber-700";
-      } else if (blkActive) {
-        escBadge.textContent = `⚡ SABOTAGE MUFFLE (${blkRemSec}s)`;
-        escBadge.className = "text-[11px] font-mono-code px-2.5 py-1 rounded-lg bg-rose-950 text-rose-300 border border-rose-600 animate-pulse";
-      } else if (diffSec <= 60) {
-        escBadge.textContent = "💓 ESCALATION: PANIC (FINAL 60s)";
-        escBadge.className = "text-[11px] font-mono-code px-2.5 py-1 rounded-lg bg-rose-950/90 text-rose-300 border border-rose-600 animate-pulse";
-      } else if (diffSec <= 180) {
-        escBadge.textContent = "📈 ESCALATION: TENSION (<3m)";
-        escBadge.className = "text-[11px] font-mono-code px-2.5 py-1 rounded-lg bg-amber-950/90 text-amber-300 border border-amber-700";
-      } else {
-        escBadge.textContent = "🎵 ESCALATION: STEADY";
-        escBadge.className = "text-[11px] font-mono-code px-2.5 py-1 rounded-lg bg-slate-800 text-slate-400 border border-slate-700";
-      }
-    }
   }
 
   if (!s.isPaused) {
@@ -4110,6 +4108,7 @@ function updateModeBadge() {
   const timerBadge = document.getElementById("timerBadge");
   const exitBtn = document.getElementById("exitRoomBtn");
 
+  document.body.classList.toggle("tv-mode-locked", appState.viewMode === "tv");
   if (appState.viewMode === "home") {
     if (el) el.classList.add("hidden");
     if (hostBtn) hostBtn.classList.add("hidden");
@@ -4370,264 +4369,224 @@ function renderTVDashboard() {
     4: "ACT IV: THE RECKONING & SOLUTION REVEAL"
   };
 
+  const denseClues = cluesList.length > 6;
+  const ultraDenseClues = cluesList.length > 9;
+  const clueGridCols = ultraDenseClues ? "grid-cols-2 xl:grid-cols-3" : "grid-cols-1 md:grid-cols-2";
+
   return `
-    <div class="flex-1 flex flex-col justify-between p-6 lg:p-8 ${isBlackout ? 'blackout-flash' : 'bg-slate-950'} transition-colors duration-700">
-      <div class="flex flex-wrap items-start justify-between gap-4 bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl">
-        <div class="flex-1 min-w-[260px]">
-          <div class="flex flex-wrap items-center gap-2.5">
-            <span class="px-3 py-1 rounded-full text-xs font-mono-code font-bold uppercase border ${pack.badgeColor}">
+    <div class="h-full w-full flex flex-col justify-between p-2.5 lg:p-4 gap-2.5 overflow-hidden ${isBlackout ? 'blackout-flash' : 'bg-slate-950'} transition-colors duration-700">
+      <!-- COMPACT ADAPTIVE TV HEADER -->
+      <div class="shrink-0 flex items-center justify-between gap-4 bg-slate-900/90 border border-slate-800 rounded-2xl px-4 py-2.5 shadow-xl">
+        <div class="flex-1 min-w-0">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="px-2.5 py-0.5 rounded-full text-[11px] font-mono-code font-bold uppercase border ${pack.badgeColor}">
               ${roundTitles[s.round] || "LIVE SESSION"}
             </span>
-            <button onclick="soundFX.unlock(); soundFX.speakBulletin('${pack.title.replace(/'/g, "")}. Smart TV Cloud voice and auto-ducking soundscape active.')" class="text-xs bg-slate-800 hover:bg-slate-700 text-emerald-300 px-3 py-1 rounded-lg border border-slate-700">
+            <button onclick="soundFX.unlock(); soundFX.speakBulletin('${pack.title.replace(/'/g, "")}. Smart TV Cloud voice and auto-ducking soundscape active.')" class="text-[11px] bg-slate-800 hover:bg-slate-700 text-emerald-300 px-2.5 py-0.5 rounded-lg border border-slate-700">
               🔊 Test TV Voice
             </button>
-            <button onclick="soundFX.toggleAmbient()" class="text-xs bg-slate-800 hover:bg-slate-700 ${soundFX.ambientEnabled ? 'text-cyan-300 border-cyan-800' : 'text-slate-400 border-slate-700'} px-3 py-1 rounded-lg border">
+            <button onclick="soundFX.toggleAmbient()" class="text-[11px] bg-slate-800 hover:bg-slate-700 ${soundFX.ambientEnabled ? 'text-cyan-300 border-cyan-800' : 'text-slate-400 border-slate-700'} px-2.5 py-0.5 rounded-lg border">
               🎵 Ambient: ${soundFX.ambientEnabled ? 'ON (Auto-Duck)' : 'OFF'}
             </button>
-            ${s.round >= 1 && s.round <= 3 ? `
-              <span id="tvAudioEscalationBadge" class="text-[11px] font-mono-code px-2.5 py-1 rounded-lg bg-slate-800 text-slate-400 border border-slate-700">
-                🎵 ESCALATION: STEADY
-              </span>
-            ` : ""}
           </div>
-          <h1 class="text-2xl lg:text-4xl font-serif-title font-extrabold text-white mt-2 whitespace-normal break-words leading-tight">
-            ${themeNumber}. ${escapeHtml(pack.title)}
-          </h1>
-          <p class="text-sm text-slate-400 mt-1 whitespace-normal break-words">${escapeHtml(pack.subtitle)}</p>
+          <div class="flex items-baseline gap-3 mt-1 truncate">
+            <h1 class="text-lg lg:text-2xl font-serif-title font-extrabold text-white truncate">
+              ${themeNumber}. ${escapeHtml(pack.title)}
+            </h1>
+            <p class="hidden xl:block text-xs text-slate-400 truncate">${escapeHtml(pack.subtitle)}</p>
+          </div>
         </div>
 
-        <div class="flex items-center gap-6 shrink-0">
+        <div class="flex items-center gap-4 shrink-0">
           ${s.round >= 1 && s.round <= 3 ? `
-            <div class="text-right border-r border-slate-800 pr-6">
-              <div class="text-xs font-mono-code text-slate-400 uppercase">Phase Timer</div>
-              <div id="tvTimerDisplay" class="text-3xl lg:text-4xl font-mono-code font-bold ${s.isPaused ? 'text-rose-400 animate-pulse' : 'text-amber-400'}">--:--</div>
-              <div class="flex justify-end gap-1.5 mt-1">
-                <button onclick="toggleTimerPause()" class="text-[11px] font-mono-code px-2.5 py-0.5 rounded ${s.isPaused ? 'bg-emerald-700 text-white border-emerald-500' : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'} border font-bold">
-                  ${s.isPaused ? '▶ Resume Game' : '⏸ Intermission / Drink Run'}
-                </button>
-                <button onclick="addFiveMinutesToTimer()" class="text-[11px] font-mono-code px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700">
-                  +5 Min
-                </button>
-              </div>
+            <div class="text-right border-r border-slate-800 pr-4">
+              <div class="text-[10px] font-mono-code text-slate-400 uppercase leading-none">Phase Timer</div>
+              <div id="tvTimerDisplay" class="text-2xl lg:text-3xl font-mono-code font-bold leading-tight ${s.isPaused ? 'text-rose-400 animate-pulse' : 'text-amber-400'}">--:--</div>
             </div>
           ` : ""}
           ${s.round !== 0 ? `
             <div class="text-right">
-              <div class="text-xs font-mono-code text-slate-400 uppercase">Room Code</div>
-              <div class="text-3xl lg:text-5xl font-mono-code font-extrabold text-indigo-400 tracking-widest">${escapeHtml(s.roomCode)}</div>
+              <div class="text-[10px] font-mono-code text-slate-400 uppercase leading-none">Room Code</div>
+              <div class="text-2xl lg:text-4xl font-mono-code font-extrabold text-indigo-400 tracking-widest leading-tight">${escapeHtml(s.roomCode)}</div>
             </div>
-            <div id="tvQrContainer" class="tvQrTarget bg-white p-2.5 rounded-2xl shadow-md shrink-0"></div>
+            <div id="tvQrContainer" class="tvQrTarget w-14 h-14 lg:w-16 lg:h-16 bg-white p-1 rounded-xl shadow-md shrink-0 flex items-center justify-center"></div>
           ` : ""}
         </div>
       </div>
 
-      <div class="my-6 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-        <div class="lg:col-span-7 bg-slate-900/80 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between">
+      <!-- MAIN 12-COL ADAPTIVE TV BODY (FITS 100% OF REMAINING VIEWPORT HEIGHT) -->
+      <div class="flex-1 min-h-0 grid grid-cols-12 gap-3 items-stretch overflow-hidden">
+        <!-- LEFT 7 COLUMNS: SCENE / EVIDENCE / SOLUTION -->
+        <div class="col-span-12 lg:col-span-7 bg-slate-900/80 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between min-h-0 overflow-hidden">
           ${s.round === 0 ? `
-            <div class="space-y-4">
-              <div class="flex flex-wrap items-center justify-between gap-2">
-                <h2 class="text-xl font-bold text-white">Setting the Scene</h2>
-                <div class="flex items-center gap-2 max-w-full">
-                  <span class="text-xs text-slate-400 shrink-0">Switch Mystery (${packList.length}):</span>
-                  <select onchange="changeRoomMystery(this.value)" class="bg-slate-950 border border-slate-700 text-xs rounded-lg px-2.5 py-1.5 text-white max-w-xs sm:max-w-md truncate">
-                    ${packList.map((m, idx) => `<option value="${m.id}" ${m.id === s.mysteryId ? 'selected' : ''}>${idx + 1}. ${escapeHtml(m.title)}</option>`).join("")}
-                  </select>
-                </div>
+            <div class="flex-1 min-h-0 flex flex-col justify-between space-y-3 overflow-hidden">
+              <div class="flex items-center justify-between gap-2 shrink-0">
+                <h2 class="text-lg font-bold text-white">Setting the Scene</h2>
+                <span class="text-xs font-mono-code text-slate-400">Managed from Host Phone</span>
               </div>
 
               <!-- LARGE LOBBY QR CODE & JOIN BANNER -->
-              <div class="bg-slate-950/90 border-2 border-indigo-500/60 rounded-2xl p-5 flex flex-col sm:flex-row items-center gap-6 shadow-xl">
-                <div id="tvQrContainer" class="tvQrTarget bg-white p-3 rounded-2xl shadow-lg shrink-0 flex items-center justify-center"></div>
-                <div class="space-y-2.5 text-center sm:text-left flex-1 min-w-0">
+              <div class="flex-1 min-h-0 bg-slate-950/90 border-2 border-indigo-500/60 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-center gap-5 shadow-xl overflow-hidden">
+                <div id="tvQrContainer" class="tvQrTarget w-36 h-36 lg:w-44 lg:h-44 bg-white p-2.5 rounded-2xl shadow-lg shrink-0 flex items-center justify-center"></div>
+                <div class="space-y-2 text-center sm:text-left flex-1 min-w-0">
                   <div>
                     <div class="text-xs font-mono-code uppercase tracking-widest text-slate-400 font-bold">ROOM CODE</div>
-                    <div class="text-5xl lg:text-6xl font-mono-code font-extrabold text-indigo-400 tracking-widest leading-none mt-1">${escapeHtml(s.roomCode)}</div>
+                    <div class="text-4xl lg:text-6xl font-mono-code font-extrabold text-indigo-400 tracking-widest leading-none mt-0.5">${escapeHtml(s.roomCode)}</div>
                   </div>
-                  <p class="text-sm lg:text-base text-slate-200 leading-relaxed pt-1 border-t border-slate-800/80">
+                  <p class="text-xs lg:text-sm text-slate-200 leading-relaxed pt-2 border-t border-slate-800/80 line-clamp-5">
                     "${escapeHtml(pack.settingIntro)}"
                   </p>
                 </div>
               </div>
 
-              <div class="bg-indigo-950/30 border border-indigo-800/60 rounded-xl p-4 flex items-center justify-between gap-3">
+              <div class="shrink-0 bg-indigo-950/30 border border-indigo-800/60 rounded-xl p-3 flex items-center justify-between gap-3">
                 <div>
-                  <div class="text-sm font-bold text-indigo-300">🤝 Enable Secret Accomplice Role (Recommended for 7–10 Players)</div>
-                  <div class="text-xs text-slate-400">One innocent suspect secretly learns who the Killer is at Blackout and wins bonus points if the Killer escapes!</div>
+                  <div class="text-xs lg:text-sm font-bold text-indigo-300">📱 Waiting for Host to Start Act I on Phone</div>
+                  <div class="text-[11px] text-slate-400">Scan the QR code with your phone camera to join. The first player in (or anyone who taps <strong>👑 Claim Host</strong> on their phone) controls the game phases!</div>
                 </div>
-                <input type="checkbox" ${s.accompliceEnabled ? 'checked' : ''} onchange="toggleAccompliceOption(this.checked)" class="w-5 h-5 accent-indigo-500 rounded cursor-pointer shrink-0" />
+                <span class="text-xs font-mono-code px-3 py-1.5 rounded-lg bg-slate-950 text-indigo-300 border border-indigo-800 shrink-0">${playersList.length}/10 Joined</span>
               </div>
-            </div>
-            <div class="mt-6 pt-4 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3">
-              <button onclick="addDemoPlayersToFillSix()" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">
-                + Fill to 6 Demo Players (Test Solo)
-              </button>
-              <button onclick="assignCharactersAndStartAct1()" class="px-6 py-3 rounded-xl font-bold text-sm bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg">
-                🎲 Roll Random Killer & Start Act I (${playersList.length}/10 Joined)
-              </button>
             </div>
           ` : s.round === 4 ? `
-            <div class="space-y-4">
-              <div class="flex flex-wrap items-center gap-2">
-                <span class="px-3 py-1 rounded bg-rose-950 text-rose-300 border border-rose-700 text-xs font-mono-code uppercase">Official Case Confession (${pack.activeVariantLabel})</span>
-                ${accPlayer ? `<span class="px-3 py-1 rounded bg-purple-950 text-purple-300 border border-purple-700 text-xs font-mono-code">🤝 Accomplice: ${escapeHtml(accPlayer.name)}</span>` : ""}
+            <div class="flex-1 min-h-0 flex flex-col justify-between space-y-2.5 overflow-hidden">
+              <div class="space-y-2 shrink-0">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="px-2.5 py-0.5 rounded bg-rose-950 text-rose-300 border border-rose-700 text-xs font-mono-code uppercase">Official Case Confession (${pack.activeVariantLabel})</span>
+                  ${accPlayer ? `<span class="px-2.5 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-700 text-xs font-mono-code">🤝 Accomplice: ${escapeHtml(accPlayer.name)}</span>` : ""}
+                </div>
+                ${renderAwardsBanner(s, pack)}
               </div>
 
-              ${renderAwardsBanner(s, pack)}
+              <div class="flex-1 min-h-0 flex flex-col justify-center overflow-hidden">
+                <h2 class="text-base lg:text-xl font-serif-title font-bold text-white mb-1 shrink-0">Whodunit & How They Were Caught</h2>
+                <p class="text-xs lg:text-sm text-emerald-200 bg-emerald-950/40 border border-emerald-700/60 rounded-xl p-3 leading-relaxed overflow-y-auto">
+                  ${pack.solutionText}
+                </p>
+              </div>
 
-              <h2 class="text-xl lg:text-2xl font-serif-title font-bold text-white pt-1">Whodunit & How They Were Caught</h2>
-              <p class="text-sm lg:text-base text-emerald-200 bg-emerald-950/40 border border-emerald-700/60 rounded-xl p-4 leading-relaxed">
-                ${pack.solutionText}
-              </p>
-              <div>
-                <h3 class="text-xs font-mono-code uppercase text-slate-400 mb-2">Room Accusation Tallies</h3>
-                <div class="grid grid-cols-2 gap-2.5">
+              <div class="shrink-0">
+                <h3 class="text-[11px] font-mono-code uppercase text-slate-400 mb-1.5">Room Accusation Tallies</h3>
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   ${renderVoteTallyCards(s, pack)}
                 </div>
               </div>
             </div>
-            <div class="mt-4 pt-3 border-t border-slate-800 flex justify-between">
-              <button onclick="createNewRoom(appState.sessionData.mysteryId, 'tv')" class="px-4 py-2 rounded-xl text-xs bg-slate-800 hover:bg-slate-700 text-slate-200">
-                🔄 Play Again (Rolls a Fresh Killer Variant!)
-              </button>
-            </div>
           ` : `
-            <div class="space-y-4 flex-1 flex flex-col">
+            <div class="flex-1 min-h-0 flex flex-col gap-2.5 overflow-hidden">
               ${s.round >= 2 ? `
-                <div class="bg-rose-950/50 border border-rose-800/80 rounded-xl p-4">
-                  <div class="text-xs font-mono-code uppercase text-rose-300 font-bold mb-1">🚨 CRIME SCENE REPORT</div>
-                  <p class="text-sm lg:text-base text-slate-100 leading-relaxed">${pack.crimeSceneReport}</p>
+                <div class="shrink-0 bg-rose-950/50 border border-rose-800/80 rounded-xl px-3.5 py-2.5">
+                  <div class="text-[11px] font-mono-code uppercase text-rose-300 font-bold mb-0.5">🚨 CRIME SCENE REPORT</div>
+                  <p class="text-xs lg:text-sm text-slate-100 leading-snug">${pack.crimeSceneReport}</p>
                 </div>
               ` : `
-                <div class="bg-indigo-950/40 border border-indigo-800/70 rounded-xl p-4 space-y-2.5">
-                  <div class="text-xs font-mono-code uppercase text-indigo-300 font-bold">🍸 ACT I — THE CALM BEFORE THE MURDER</div>
-                  <p class="text-sm lg:text-base text-slate-200 leading-relaxed">${pack.settingIntro}</p>
-                  <div class="bg-amber-950/50 border border-amber-500/70 rounded-xl p-3.5 flex items-center gap-3">
-                    <span class="text-2xl shrink-0">📱</span>
-                    <div class="text-sm lg:text-base font-bold text-amber-300 leading-snug">
+                <div class="shrink-0 bg-indigo-950/40 border border-indigo-800/70 rounded-xl p-3 space-y-2">
+                  <div class="text-[11px] font-mono-code uppercase text-indigo-300 font-bold">🍸 ACT I — THE CALM BEFORE THE MURDER</div>
+                  <p class="text-xs lg:text-sm text-slate-200 leading-snug">${pack.settingIntro}</p>
+                  <div class="bg-amber-950/50 border border-amber-500/70 rounded-xl p-2.5 flex items-center gap-2.5">
+                    <span class="text-xl shrink-0">📱</span>
+                    <div class="text-xs lg:text-sm font-bold text-amber-300 leading-snug">
                       ACT I INSTRUCTIONS: Read your secret character dossier on your phone and mingle with the other suspects!
                     </div>
                   </div>
                 </div>
               `}
 
-              <div class="flex-1">
-                <div class="flex items-center justify-between mb-2">
-                  <h3 class="text-sm font-mono-code uppercase tracking-wider text-slate-300">Public Evidence, Alibi & Pat-Down Board (${cluesList.length})</h3>
-                  <span class="text-xs text-slate-400">${s.round === 1 ? "Awaiting Act II Blackout" : "Auto-Twist fires at 10:00 remaining in Act II"}</span>
+              <div class="flex-1 min-h-0 flex flex-col overflow-hidden">
+                <div class="shrink-0 flex items-center justify-between mb-1.5">
+                  <h3 class="text-xs font-mono-code uppercase tracking-wider text-slate-300">Public Evidence, Alibi & Pat-Down Board (${cluesList.length})</h3>
+                  <span class="text-[11px] text-slate-400">${s.round === 1 ? "Awaiting Act II Blackout" : "Live Investigation Feed"}</span>
                 </div>
                 ${cluesList.length === 0 ? `
-                  <div class="h-40 border border-dashed border-slate-800 rounded-xl flex flex-col items-center justify-center text-slate-300 text-sm lg:text-base p-5 text-center space-y-1">
+                  <div class="flex-1 min-h-0 border border-dashed border-slate-800 rounded-xl flex flex-col items-center justify-center text-slate-300 text-sm p-4 text-center space-y-1">
                     ${s.round === 1
-                      ? `<div class="font-bold text-white text-base lg:text-lg">🕵️ Read Your Mobile Dossier & Mingle with the Suspects!</div><div class="text-xs lg:text-sm text-slate-400">Introduce your character, complete your Act I objective, and watch out—someone in this room is about to strike.</div>`
+                      ? `<div class="font-bold text-white text-base">🕵️ Read Your Mobile Dossier & Mingle with the Suspects!</div><div class="text-xs text-slate-400">Introduce your character, complete your Act I objective, and watch out—someone in this room is about to strike.</div>`
                       : "Waiting for the Ghost Investigator or Suspects to broadcast forensic clues, Pat-Down leaks, and alibis..."}
                   </div>
                 ` : `
-                  <div data-scroll-id="tvCluesScroll" class="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-72 overflow-y-auto pr-1">
+                  <div data-scroll-id="tvCluesScroll" class="flex-1 min-h-0 grid ${clueGridCols} gap-2 overflow-y-auto content-start pr-1">
                     ${cluesList.map(c => `
-                      <div class="bg-slate-950/90 border ${c.id === 'twist_mid' ? 'border-rose-500 bg-rose-950/20' : 'border-slate-700/80'} rounded-xl p-3.5 shadow">
-                        <div class="flex items-center justify-between text-[11px] font-mono-code ${c.id === 'twist_mid' ? 'text-rose-300 font-bold' : 'text-amber-400'} mb-1">
-                          <span>${escapeHtml(c.title)}</span>
-                          <span class="text-slate-500">${escapeHtml(c.source)}</span>
+                      <div class="bg-slate-950/90 border ${c.id === 'twist_mid' ? 'border-rose-500 bg-rose-950/20' : 'border-slate-700/80'} rounded-xl ${denseClues ? 'p-2' : 'p-2.5'} shadow flex flex-col justify-between">
+                        <div class="flex items-center justify-between gap-1 text-[10px] font-mono-code ${c.id === 'twist_mid' ? 'text-rose-300 font-bold' : 'text-amber-400'} mb-0.5">
+                          <span class="truncate">${escapeHtml(c.title)}</span>
+                          <span class="text-slate-500 shrink-0">${escapeHtml(c.source)}</span>
                         </div>
-                        <p class="text-xs lg:text-sm text-slate-200 leading-snug">${escapeHtml(c.detail)}</p>
+                        <p class="${denseClues ? 'text-[11px]' : 'text-xs'} text-slate-200 leading-snug">${escapeHtml(c.detail)}</p>
                       </div>
                     `).join("")}
                   </div>
                 `}
               </div>
-
-              <div class="pt-3 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2">
-                <span class="text-xs text-slate-400">TV/Host Phase Controls (Spoiler-Free):</span>
-                <div class="flex flex-wrap gap-2">
-                  ${s.round === 1 ? `
-                    <button onclick="triggerBlackoutMurder()" class="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white shadow">
-                      ⚡ Trigger Blackout Murder (Start Act II)
-                    </button>
-                  ` : ""}
-                  ${s.round === 2 && !s.midTwistTriggered ? `
-                    <button onclick="triggerMidRoundTwist()" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-fuchsia-700 hover:bg-fuchsia-600 text-white shadow">
-                      🚨 Fire Mid-Act Twist Now
-                    </button>
-                  ` : ""}
-                  ${s.round === 2 ? `
-                    <button onclick="advanceToAct3Voting()" class="px-4 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white shadow">
-                      🗳️ Declassify All Evidence & Open Voting (Act III)
-                    </button>
-                  ` : ""}
-                  ${s.round === 3 ? `
-                    <button onclick="revealFinalSolution()" class="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow">
-                      🎭 Reveal Final Killer Solution (Act IV)
-                    </button>
-                  ` : ""}
-                </div>
-              </div>
             </div>
           `}
         </div>
 
-        <div class="lg:col-span-5 bg-slate-900/80 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between">
-          <div>
-            <div class="flex items-center justify-between mb-4">
-              <h2 class="text-lg font-bold text-white">Suspect Mugshot Roster (${playersList.length}/10)</h2>
-              <span class="text-xs font-mono-code text-slate-400">${s.round === 3 ? `${Object.keys(s.votes || {}).length} Voted` : (s.accompliceEnabled ? "Accomplice Mode ON" : "Standard Mode")}</span>
+        <!-- RIGHT 5 COLUMNS: ZERO-SCROLL 2-COLUMN SUSPECT MUGSHOT ROSTER (ALL 10 FIT AT ONCE) -->
+        <div class="col-span-12 lg:col-span-5 bg-slate-900/80 border border-slate-800 rounded-2xl p-3.5 flex flex-col justify-between min-h-0 overflow-hidden">
+          <div class="flex-1 min-h-0 flex flex-col overflow-hidden">
+            <div class="shrink-0 flex items-center justify-between mb-2">
+              <h2 class="text-sm lg:text-base font-bold text-white">Suspect Mugshot Roster (${playersList.length}/10)</h2>
+              <span class="text-[11px] font-mono-code text-slate-400">${s.round === 3 ? `${Object.keys(s.votes || {}).length} Voted` : (s.accompliceEnabled ? "Accomplice Mode ON" : "Standard Mode")}</span>
             </div>
-            <div data-scroll-id="tvRosterScroll" class="space-y-2.5 max-h-[420px] overflow-y-auto pr-1">
-              ${playersList.length === 0 ? `
-                <div class="text-sm text-slate-500 py-12 text-center border border-dashed border-slate-800 rounded-xl">
-                  No players joined yet. Scan the QR code or open this page on your phone!
-                </div>
-              ` : playersList.map(p => {
-                const charObj = pack.characters.find(c => c.id === p.characterId);
-                const isGhost = s.round >= 2 && charObj && charObj.role === "victim";
-                const hasVoted = s.votes && s.votes[p.id];
-                const charShortName = charObj ? charObj.name.split("(")[0].trim() : "";
-                const charRoleSub = (charObj && charObj.name.includes("(")) ? "(" + charObj.name.split("(")[1] : "";
+            ${playersList.length === 0 ? `
+              <div class="flex-1 min-h-0 text-sm text-slate-500 flex items-center justify-center text-center border border-dashed border-slate-800 rounded-xl p-4">
+                No players joined yet. Scan the QR code or open this page on your phone!
+              </div>
+            ` : `
+              <div class="flex-1 min-h-0 grid grid-cols-2 auto-rows-fr gap-2 overflow-hidden">
+                ${playersList.map(p => {
+                  const charObj = pack.characters.find(c => c.id === p.characterId);
+                  const isGhost = s.round >= 2 && charObj && charObj.role === "victim";
+                  const hasVoted = s.votes && s.votes[p.id];
+                  const charShortName = charObj ? charObj.name.split("(")[0].trim() : "";
+                  const charRoleSub = (charObj && charObj.name.includes("(")) ? "(" + charObj.name.split("(")[1] : "";
 
-                return `
-                  <div class="flex items-center justify-between p-3 rounded-xl border ${isGhost ? 'bg-rose-950/40 border-rose-700/70' : 'bg-slate-950/70 border-slate-800'}">
-                    <div class="flex items-center gap-3.5 min-w-0">
-                      ${renderMugshotAvatar(p, isGhost, "w-12 h-12")}
-                      <div class="min-w-0">
-                        ${charObj ? `
-                          <div class="flex items-center gap-2 flex-wrap">
-                            <span class="font-extrabold text-base lg:text-xl text-amber-300 leading-tight whitespace-normal break-words">${escapeHtml(charShortName)}</span>
-                            ${charRoleSub ? `<span class="text-xs lg:text-sm font-semibold text-slate-200 whitespace-normal break-words">${escapeHtml(charRoleSub)}</span>` : ""}
-                            ${isGhost ? `<span class="text-[10px] font-mono-code bg-rose-600 text-white px-2 py-0.5 rounded font-bold">👻 INVESTIGATOR</span>` : ""}
-                            ${s.round === 4 && p.isAccomplice ? `<span class="text-[10px] font-mono-code bg-purple-700 text-white px-2 py-0.5 rounded font-bold">🤝 ACCOMPLICE</span>` : ""}
-                          </div>
-                          <div class="flex items-center gap-2 mt-1">
-                            <span class="text-xs text-slate-400">Played by <strong class="text-slate-300 font-medium">${escapeHtml(p.name)}</strong></span>
-                            ${p.isHost ? `<span class="text-[10px] font-mono-code bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded">HOST</span>` : ""}
-                          </div>
-                        ` : `
-                          <div class="flex items-center gap-2 flex-wrap">
-                            <span class="font-bold text-base text-white truncate">${escapeHtml(p.name)}</span>
-                            ${p.isHost ? `<span class="text-[10px] font-mono-code bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded">HOST</span>` : ""}
-                          </div>
-                          <div class="text-xs text-slate-400 mt-0.5">Awaiting Role Deal...</div>
-                        `}
+                  return `
+                    <div class="flex items-center justify-between px-2.5 py-1.5 rounded-xl border min-w-0 overflow-hidden ${isGhost ? 'bg-rose-950/40 border-rose-700/70' : 'bg-slate-950/70 border-slate-800'}">
+                      <div class="flex items-center gap-2 min-w-0 flex-1">
+                        ${renderMugshotAvatar(p, isGhost, "w-9 h-9 lg:w-10 lg:h-10")}
+                        <div class="min-w-0 flex-1">
+                          ${charObj ? `
+                            <div class="flex items-center gap-1 flex-wrap leading-tight">
+                              <span class="font-extrabold text-xs lg:text-sm text-amber-300 truncate">${escapeHtml(charShortName)}</span>
+                              ${isGhost ? `<span class="text-[9px] font-mono-code bg-rose-600 text-white px-1 py-0.2 rounded font-bold shrink-0">👻 GHOST</span>` : ""}
+                              ${s.round === 4 && p.isAccomplice ? `<span class="text-[9px] font-mono-code bg-purple-700 text-white px-1 py-0.2 rounded font-bold shrink-0">🤝 ALLY</span>` : ""}
+                            </div>
+                            ${charRoleSub ? `<div class="text-[10px] text-slate-300 truncate leading-tight">${escapeHtml(charRoleSub)}</div>` : ""}
+                            <div class="flex items-center gap-1 mt-0.5 leading-none">
+                              <span class="text-[10px] text-slate-400 truncate"><strong class="text-slate-200 font-medium">${escapeHtml(p.name)}</strong></span>
+                              ${p.isHost ? `<span class="text-[8px] font-mono-code bg-slate-800 text-amber-300 px-1 py-0.5 rounded shrink-0">HOST</span>` : ""}
+                            </div>
+                          ` : `
+                            <div class="flex items-center gap-1">
+                              <span class="font-bold text-xs lg:text-sm text-white truncate">${escapeHtml(p.name)}</span>
+                              ${p.isHost ? `<span class="text-[8px] font-mono-code bg-slate-800 text-amber-300 px-1 py-0.5 rounded shrink-0">HOST</span>` : ""}
+                            </div>
+                            <div class="text-[10px] text-slate-400 truncate">In Lobby...</div>
+                          `}
+                        </div>
+                      </div>
+                      <div class="text-right shrink-0 pl-1">
+                        ${s.round === 3 ? (
+                          isGhost
+                            ? `<span class="text-[9px] font-mono-code text-rose-300">Ghost</span>`
+                            : hasVoted
+                              ? `<span class="text-[9px] font-mono-code text-emerald-400 bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-800">VOTED ✓</span>`
+                              : `<span class="text-[9px] font-mono-code text-amber-400">...</span>`
+                        ) : (
+                          p.sharedAlibi
+                            ? `<span class="text-[9px] font-mono-code text-cyan-300 bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-800/60">Alibi ✓</span>`
+                            : ``
+                        )}
                       </div>
                     </div>
-                    <div class="text-right shrink-0 pl-2">
-                      ${s.round === 3 ? (
-                        isGhost
-                          ? `<span class="text-xs font-mono-code text-rose-300">Prosecutor</span>`
-                          : hasVoted
-                            ? `<span class="text-xs font-mono-code text-emerald-400 bg-emerald-950/80 px-2 py-1 rounded border border-emerald-800">VOTED ✓</span>`
-                            : `<span class="text-xs font-mono-code text-amber-400">Voting...</span>`
-                      ) : (
-                        p.sharedAlibi
-                          ? `<span class="text-[11px] font-mono-code text-cyan-300">Alibi Logged</span>`
-                          : `<span class="text-[11px] font-mono-code text-slate-500">Active</span>`
-                      )}
-                    </div>
-                  </div>
-                `;
-              }).join("")}
-            </div>
+                  `;
+                }).join("")}
+              </div>
+            `}
           </div>
 
-          <div class="mt-4 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 overflow-hidden">
+          <!-- LIVE NEWS TICKER -->
+          <div class="shrink-0 mt-2 bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 overflow-hidden">
             <div class="ticker-move text-xs font-mono-code text-amber-300">
               ${escapeHtml(s.latestEvent ? s.latestEvent.text : "Waiting for party to start...")}
             </div>
@@ -4645,7 +4604,7 @@ function renderTVDashboard() {
 
             <!-- GIANT QR CODE & ROOM CODE ON PAUSE SCREEN -->
             <div class="bg-slate-950 border border-slate-800 rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-center gap-6">
-              <div class="tvQrTarget bg-white p-3 rounded-2xl shadow-lg shrink-0 flex items-center justify-center"></div>
+              <div class="tvQrTarget w-40 h-40 bg-white p-3 rounded-2xl shadow-lg shrink-0 flex items-center justify-center"></div>
               <div class="text-center sm:text-left space-y-1">
                 <div class="text-xs font-mono-code uppercase text-slate-400">Need to Reconnect Your Phone?</div>
                 <div class="text-sm text-slate-300">Scan the QR code or enter Room Code:</div>
@@ -4654,13 +4613,8 @@ function renderTVDashboard() {
             </div>
 
             <p class="text-xs lg:text-sm text-slate-400 leading-relaxed">
-              All phase timers, Killer sabotage cooldowns, and 1-on-1 PIN Pat-Downs are frozen until the Host resumes.
+              All phase timers, Killer sabotage cooldowns, and 1-on-1 PIN Pat-Downs are frozen until the Host resumes from their phone.
             </p>
-            <div>
-              <button onclick="toggleTimerPause()" class="px-8 py-4 rounded-2xl font-bold text-base bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/50 transition">
-                ▶ Resume Investigation
-              </button>
-            </div>
           </div>
         </div>
       ` : ""}
@@ -4692,11 +4646,11 @@ function renderVoteTallyCards(s, pack) {
     const cnt = counts[c.id] || 0;
     const isKiller = c.role === "killer";
     return `
-      <div class="p-2.5 rounded-lg border ${isKiller ? 'bg-rose-950/60 border-rose-600' : 'bg-slate-950 border-slate-800'} flex items-center justify-between">
+      <div class="px-2.5 py-1.5 rounded-lg border ${isKiller ? 'bg-rose-950/60 border-rose-600' : 'bg-slate-950 border-slate-800'} flex items-center justify-between">
         <div class="text-xs font-semibold text-white truncate pr-2">
-          ${escapeHtml(c.name.split("(")[0])} ${isKiller ? '🔪 (KILLER)' : ''}
+          ${escapeHtml(c.name.split("(")[0])} ${isKiller ? '🔪' : ''}
         </div>
-        <span class="text-xs font-mono-code px-2 py-0.5 rounded bg-slate-800 text-amber-300">${cnt} vote${cnt === 1 ? '' : 's'}</span>
+        <span class="text-[11px] font-mono-code px-1.5 py-0.5 rounded bg-slate-800 text-amber-300 shrink-0">${cnt}v</span>
       </div>
     `;
   }).join("");
@@ -4718,6 +4672,7 @@ function renderTVQRCode() {
   const firstContainer = containers[0];
   firstContainer.innerHTML = "";
   const url = new URL(window.location.href);
+  url.searchParams.delete("tv");
   url.searchParams.set("room", code);
   new QRCode(firstContainer, {
     text: url.toString(),
