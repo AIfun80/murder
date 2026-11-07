@@ -2624,6 +2624,9 @@ let appState = {
   playerName: localStorage.getItem("mm_player_name") || "",
   playerMugshot: localStorage.getItem("mm_player_mugshot") || "",
   corkboardOpen: false,
+  lobbyPreviewOpen: false,
+  tvControlsOpen: false,
+  preferredVariant: "auto",
   sessionData: null,
   lastPlayedEventId: null,
   lastPauseState: false,
@@ -2903,6 +2906,20 @@ function saveCorkboardNote(charId, noteText) {
 function toggleCorkboardDrawer() {
   appState.corkboardOpen = !appState.corkboardOpen;
   renderApp();
+}
+
+function toggleLobbyPreview() {
+  appState.lobbyPreviewOpen = !appState.lobbyPreviewOpen;
+  renderApp();
+}
+
+function toggleTvControls() {
+  appState.tvControlsOpen = !appState.tvControlsOpen;
+  renderApp();
+}
+
+function setPreferredVariant(val) {
+  appState.preferredVariant = val;
 }
 
 function getCluesList(session) {
@@ -3543,18 +3560,68 @@ function addDemoPlayersToFillSix() {
   writeRoomState(s);
 }
 
+function getLocalPlayedVariants() {
+  try {
+    const raw = localStorage.getItem("mm_played_variants");
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function pickNextVariantIndex(mysteryId, s) {
+  if (appState.preferredVariant === "0" || appState.preferredVariant === "1" || appState.preferredVariant === "2") {
+    return Number(appState.preferredVariant);
+  }
+  const localMap = getLocalPlayedVariants();
+  const roomMap = (s && s.playedVariants) ? s.playedVariants : {};
+  const playedSet = new Set([
+    ...(Array.isArray(localMap[mysteryId]) ? localMap[mysteryId] : []),
+    ...(Array.isArray(roomMap[mysteryId]) ? roomMap[mysteryId] : [])
+  ]);
+  let candidates = [0, 1, 2].filter(v => !playedSet.has(v));
+  if (candidates.length === 0) {
+    candidates = [0, 1, 2];
+  }
+  return candidates[Math.floor(Math.random() * candidates.length)];
+}
+
+function recordPlayedVariant(mysteryId, variantIdx, s) {
+  const localMap = getLocalPlayedVariants();
+  const prevLocal = Array.isArray(localMap[mysteryId]) ? localMap[mysteryId] : [];
+  const nextLocal = prevLocal.includes(variantIdx) ? prevLocal : [...prevLocal, variantIdx];
+  localMap[mysteryId] = nextLocal.length >= 3 ? [variantIdx] : nextLocal;
+  try { localStorage.setItem("mm_played_variants", JSON.stringify(localMap)); } catch (e) {}
+
+  const roomMap = (s && s.playedVariants && typeof s.playedVariants === "object") ? JSON.parse(JSON.stringify(s.playedVariants)) : {};
+  const prevRoom = Array.isArray(roomMap[mysteryId]) ? roomMap[mysteryId] : [];
+  const nextRoom = prevRoom.includes(variantIdx) ? prevRoom : [...prevRoom, variantIdx];
+  roomMap[mysteryId] = nextRoom.length >= 3 ? [variantIdx] : nextRoom;
+  return roomMap;
+}
+
 function changeRoomMystery(newMysteryId) {
   if (!appState.sessionData) return;
-  const s = JSON.parse(JSON.stringify(appState.sessionData));
-  s.mysteryId = newMysteryId;
-  const pack = getEffectivePack(newMysteryId, s.variantIndex || 0);
-  s.latestEvent = {
-    id: "ev_" + Date.now(),
+  const now = Date.now();
+  const pack = getEffectivePack(newMysteryId, appState.sessionData.variantIndex || 0);
+  const evObj = {
+    id: "ev_" + now,
     type: "phase",
     text: `Mystery switched to: ${pack.title}`,
     speechText: `Now loading mystery cartridge: ${pack.title}.`
   };
-  writeRoomState(s);
+  if (firebaseDb && appState.roomCode) {
+    firebaseDb.ref(`mystery_rooms/${appState.roomCode}`).update({
+      mysteryId: newMysteryId,
+      latestEvent: evObj,
+      updatedAt: now
+    });
+  } else {
+    const s = JSON.parse(JSON.stringify(appState.sessionData));
+    s.mysteryId = newMysteryId;
+    s.latestEvent = evObj;
+    writeRoomState(s);
+  }
 }
 
 function assignCharactersAndStartAct1() {
@@ -3567,8 +3634,10 @@ function assignCharactersAndStartAct1() {
     return;
   }
 
-  const chosenVariant = Math.floor(Math.random() * 3);
+  const chosenVariant = pickNextVariantIndex(s.mysteryId, s);
+  const updatedPlayedVariants = recordPlayedVariant(s.mysteryId, chosenVariant, s);
   s.variantIndex = chosenVariant;
+  s.playedVariants = updatedPlayedVariants;
   s.midTwistTriggered = false;
   midTwistLatch = false;
   const pack = getEffectivePack(s.mysteryId, chosenVariant);
@@ -3599,6 +3668,7 @@ function assignCharactersAndStartAct1() {
     s.players[pid].pinCode = pin;
     s.players[pid].patDownTokens = 1;
     s.players[pid].unlockedPrivateClues = {};
+    s.players[pid].plantedDecoys = {};
 
     if (assignedChar.role === "suspect") {
       innocentPlayerIds.push(pid);
@@ -3612,21 +3682,55 @@ function assignCharactersAndStartAct1() {
     s.accomplicePlayerId = accPid;
   }
 
+  const now = Date.now();
   s.round = 1;
   s.isPaused = false;
   s.pausedRemainingMs = null;
-  s.phaseEndsAt = Date.now() + 15 * 60 * 1000;
+  s.sabotageCooldownUntil = null;
+  s.sabotageBlackoutUntil = null;
+  s.phaseEndsAt = now + 15 * 60 * 1000;
   s.publicClues = {};
   s.votes = {};
   s.awardVotes = {};
   s.latestEvent = {
-    id: "ev_act1_" + Date.now(),
+    id: "ev_act1_" + now,
     type: "phase",
     text: `ACT I BEGINS (${pack.activeVariantLabel} Loaded): Read your private dossier on your phone and mingle!`,
     mp3File: `vo_${s.mysteryId}_intro.mp3`,
     speechText: `Act One has begun. ${pack.settingIntro} Check your mobile dossiers and mingle with the suspects.`
   };
-  writeRoomState(s);
+
+  if (firebaseDb && appState.roomCode) {
+    const fbUpdates = {
+      variantIndex: s.variantIndex,
+      playedVariants: s.playedVariants,
+      midTwistTriggered: false,
+      accomplicePlayerId: s.accomplicePlayerId,
+      round: 1,
+      isPaused: false,
+      pausedRemainingMs: null,
+      sabotageCooldownUntil: null,
+      sabotageBlackoutUntil: null,
+      phaseEndsAt: s.phaseEndsAt,
+      publicClues: {},
+      votes: {},
+      awardVotes: {},
+      latestEvent: s.latestEvent,
+      updatedAt: now
+    };
+    playerIds.forEach(pid => {
+      fbUpdates[`players/${pid}/characterId`] = s.players[pid].characterId;
+      fbUpdates[`players/${pid}/sharedAlibi`] = false;
+      fbUpdates[`players/${pid}/isAccomplice`] = s.players[pid].isAccomplice;
+      fbUpdates[`players/${pid}/pinCode`] = s.players[pid].pinCode;
+      fbUpdates[`players/${pid}/patDownTokens`] = 1;
+      fbUpdates[`players/${pid}/unlockedPrivateClues`] = null;
+      fbUpdates[`players/${pid}/plantedDecoys`] = null;
+    });
+    firebaseDb.ref(`mystery_rooms/${appState.roomCode}`).update(fbUpdates);
+  } else {
+    writeRoomState(s);
+  }
 }
 
 function executePinPatDown() {
@@ -3691,31 +3795,84 @@ function triggerBlackoutMurder() {
   const s = JSON.parse(JSON.stringify(appState.sessionData));
   const pack = getEffectivePack(s.mysteryId, s.variantIndex);
   const victimChar = pack.characters[0];
+  const now = Date.now();
 
-  s.round = 2;
-  s.isPaused = false;
-  s.pausedRemainingMs = null;
-  s.midTwistTriggered = false;
-  midTwistLatch = false;
-  s.phaseEndsAt = Date.now() + 20 * 60 * 1000;
-  if (!s.publicClues || Array.isArray(s.publicClues)) s.publicClues = {};
-
-  s.publicClues["motive_0"] = {
+  const motiveClue = {
     id: "motive_0",
     title: "CRIME SCENE MOTIVE LEDGER",
     detail: victimChar.publicAlibi,
     source: "Found on Victim",
-    timestamp: Date.now()
+    timestamp: now
   };
-
-  s.latestEvent = {
-    id: "ev_blackout_" + Date.now(),
+  const evObj = {
+    id: "ev_blackout_" + now,
     type: "blackout",
     text: `BLACKOUT! ${pack.crimeSceneReport}`,
     mp3File: `vo_${s.mysteryId}_v${(s.variantIndex || 0) + 1}_blackout.mp3`,
     speechText: `Emergency Alert! A murder has occurred! ${pack.crimeSceneReport}`
   };
-  writeRoomState(s);
+
+  midTwistLatch = false;
+  if (firebaseDb && appState.roomCode) {
+    firebaseDb.ref(`mystery_rooms/${appState.roomCode}`).update({
+      round: 2,
+      isPaused: false,
+      pausedRemainingMs: null,
+      midTwistTriggered: false,
+      phaseEndsAt: now + 20 * 60 * 1000,
+      "publicClues/motive_0": motiveClue,
+      latestEvent: evObj,
+      updatedAt: now
+    });
+  } else {
+    s.round = 2;
+    s.isPaused = false;
+    s.pausedRemainingMs = null;
+    s.midTwistTriggered = false;
+    s.phaseEndsAt = now + 20 * 60 * 1000;
+    if (!s.publicClues || Array.isArray(s.publicClues)) s.publicClues = {};
+    s.publicClues["motive_0"] = motiveClue;
+    s.latestEvent = evObj;
+    writeRoomState(s);
+  }
+}
+
+function releaseVictimPocketNote() {
+  const s = appState.sessionData;
+  if (!s) return;
+  const pack = getEffectivePack(s.mysteryId, s.variantIndex);
+  const victimChar = pack.characters[0];
+  if (!victimChar || !victimChar.searchClue) return;
+
+  const now = Date.now();
+  const clueId = "victim_note_0";
+  const clueObj = {
+    id: clueId,
+    title: "VICTIM'S POCKET NOTE (INVESTIGATION LEAD)",
+    detail: victimChar.searchClue,
+    source: "Ghost Investigator",
+    timestamp: now
+  };
+  const evObj = {
+    id: "ev_vnote_" + now,
+    type: "clue",
+    text: `VICTIM'S POCKET NOTE FOUND: ${victimChar.searchClue}`,
+    speechText: `A handwritten note was recovered from the victim's pocket. ${victimChar.searchClue}`
+  };
+
+  if (firebaseDb && appState.roomCode) {
+    firebaseDb.ref(`mystery_rooms/${appState.roomCode}`).update({
+      [`publicClues/${clueId}`]: clueObj,
+      latestEvent: evObj,
+      updatedAt: now
+    });
+  } else {
+    const copy = JSON.parse(JSON.stringify(s));
+    if (!copy.publicClues) copy.publicClues = {};
+    copy.publicClues[clueId] = clueObj;
+    copy.latestEvent = evObj;
+    writeRoomState(copy);
+  }
 }
 
 function triggerMidRoundTwist() {
@@ -3878,8 +4035,20 @@ function advanceToAct3Voting() {
   if (!appState.sessionData || appState.sessionData.round !== 2) return;
   const s = JSON.parse(JSON.stringify(appState.sessionData));
   const pack = getEffectivePack(s.mysteryId, s.variantIndex);
+  const now = Date.now();
 
   if (!s.publicClues || Array.isArray(s.publicClues)) s.publicClues = {};
+
+  const victimChar = pack.characters[0];
+  if (victimChar && victimChar.searchClue && !s.publicClues["victim_note_0"]) {
+    s.publicClues["victim_note_0"] = {
+      id: "victim_note_0",
+      title: "VICTIM'S POCKET NOTE (INVESTIGATION LEAD)",
+      detail: victimChar.searchClue,
+      source: "Ghost Investigator",
+      timestamp: now + 5
+    };
+  }
 
   if (pack.midRoundTwist && !s.publicClues["twist_mid"]) {
     s.publicClues["twist_mid"] = {
@@ -3887,7 +4056,7 @@ function advanceToAct3Voting() {
       title: `🚨 NEW TWIST: ${pack.midRoundTwist.title}`,
       detail: pack.midRoundTwist.detail,
       source: "Breaking News Interruption",
-      timestamp: Date.now()
+      timestamp: now + 8
     };
   }
 
@@ -3898,7 +4067,7 @@ function advanceToAct3Voting() {
         title: `FORENSIC REPORT: ${item.title}`,
         detail: item.detail,
         source: "Ghost Investigator",
-        timestamp: Date.now() + 10 + idx
+        timestamp: now + 10 + idx
       };
     }
   });
@@ -3912,7 +4081,7 @@ function advanceToAct3Voting() {
         title: `SEARCH / WITNESS FILE: ${shortName.toUpperCase()}`,
         detail: charObj.searchClue,
         source: "Final Tribunal Warrant",
-        timestamp: Date.now() + 100 + idx
+        timestamp: now + 100 + idx
       };
     }
   });
@@ -3920,14 +4089,30 @@ function advanceToAct3Voting() {
   s.round = 3;
   s.isPaused = false;
   s.pausedRemainingMs = null;
-  s.phaseEndsAt = Date.now() + 10 * 60 * 1000;
+  s.phaseEndsAt = now + 10 * 60 * 1000;
   s.latestEvent = {
-    id: "ev_act3_" + Date.now(),
+    id: "ev_act3_" + now,
     type: "phase",
-    text: `ACT III — THE TRIBUNAL: All evidence declassified! Vote for the Killer on your phone.`,
+    text: `ACT III — THE TRIBUNAL: All evidence declassified! Vote for the Killer & Party Superlatives on your phone.`,
     speechText: `Attention suspects. All forensic and search warrant evidence has been declassified on the main screen. Lock in your final accusation on your phones.`
   };
-  writeRoomState(s);
+
+  if (firebaseDb && appState.roomCode) {
+    const fbUpdates = {
+      round: 3,
+      isPaused: false,
+      pausedRemainingMs: null,
+      phaseEndsAt: s.phaseEndsAt,
+      latestEvent: s.latestEvent,
+      updatedAt: now
+    };
+    Object.entries(s.publicClues).forEach(([k, v]) => {
+      fbUpdates[`publicClues/${k}`] = v;
+    });
+    firebaseDb.ref(`mystery_rooms/${appState.roomCode}`).update(fbUpdates);
+  } else {
+    writeRoomState(s);
+  }
 }
 
 function submitPlayerVote(voterId, suspectCharId) {
@@ -3951,6 +4136,43 @@ function submitPlayerVote(voterId, suspectCharId) {
   }
 }
 
+function submitAwardVote(voterId, category, targetPlayerId) {
+  if (appState.sessionData && appState.sessionData.isPaused) {
+    HapticsEngine.trigger("ERROR");
+    return alert("Game is paused for Intermission!");
+  }
+  const currentTarget = appState.sessionData?.awardVotes?.[category]?.[voterId] || null;
+  const nextTarget = (currentTarget === targetPlayerId) ? null : targetPlayerId;
+
+  HapticsEngine.trigger("VOTE_LOCKED");
+  if (firebaseDb && appState.roomCode) {
+    firebaseDb.ref(`mystery_rooms/${appState.roomCode}/awardVotes/${category}/${voterId}`).set(nextTarget);
+    firebaseDb.ref(`mystery_rooms/${appState.roomCode}/updatedAt`).set(Date.now());
+  } else if (appState.sessionData) {
+    const s = JSON.parse(JSON.stringify(appState.sessionData));
+    if (!s.awardVotes) s.awardVotes = {};
+    if (!s.awardVotes[category]) s.awardVotes[category] = {};
+    if (nextTarget === null) delete s.awardVotes[category][voterId];
+    else s.awardVotes[category][voterId] = nextTarget;
+    writeRoomState(s);
+  }
+}
+
+function tallyCategoryWinners(votesMap, playersMap) {
+  if (!votesMap || !playersMap) return [];
+  const counts = {};
+  let maxCount = 0;
+  Object.values(votesMap).forEach(targetPid => {
+    if (!targetPid || !playersMap[targetPid]) return;
+    counts[targetPid] = (counts[targetPid] || 0) + 1;
+    if (counts[targetPid] > maxCount) maxCount = counts[targetPid];
+  });
+  if (maxCount === 0) return [];
+  return Object.entries(counts)
+    .filter(([, cnt]) => cnt === maxCount)
+    .map(([pid]) => playersMap[pid].name);
+}
+
 function computeAwardWinners(s, pack) {
   const killerChar = pack.characters.find(c => c.role === "killer");
   const sleuthNames = [];
@@ -3961,8 +4183,12 @@ function computeAwardWinners(s, pack) {
       }
     });
   }
+  const bestRoleplayers = tallyCategoryWinners(s.awardVotes && s.awardVotes.roleplayer, s.players);
+  const bestPokerFaces = tallyCategoryWinners(s.awardVotes && s.awardVotes.pokerface, s.players);
   return {
-    sleuths: sleuthNames
+    sleuths: sleuthNames,
+    roleplayers: bestRoleplayers,
+    pokerfaces: bestPokerFaces
   };
 }
 
@@ -3970,19 +4196,101 @@ function revealFinalSolution() {
   if (!appState.sessionData || appState.sessionData.round !== 3) return;
   const s = JSON.parse(JSON.stringify(appState.sessionData));
   const pack = getEffectivePack(s.mysteryId, s.variantIndex);
+  const now = Date.now();
 
-  s.round = 4;
-  s.isPaused = false;
-  s.pausedRemainingMs = null;
-  s.phaseEndsAt = null;
-  s.latestEvent = {
-    id: "ev_reveal_" + Date.now(),
+  const evObj = {
+    id: "ev_reveal_" + now,
     type: "reveal",
     text: `THE RECKONING: ${pack.solutionText}`,
     mp3File: `vo_${s.mysteryId}_v${(s.variantIndex || 0) + 1}_solution.mp3`,
     speechText: `The votes are in! Now, here is the truth of the murder! ${pack.solutionText}`
   };
-  writeRoomState(s);
+
+  if (firebaseDb && appState.roomCode) {
+    firebaseDb.ref(`mystery_rooms/${appState.roomCode}`).update({
+      round: 4,
+      isPaused: false,
+      pausedRemainingMs: null,
+      phaseEndsAt: null,
+      latestEvent: evObj,
+      updatedAt: now
+    });
+  } else {
+    s.round = 4;
+    s.isPaused = false;
+    s.pausedRemainingMs = null;
+    s.phaseEndsAt = null;
+    s.latestEvent = evObj;
+    writeRoomState(s);
+  }
+}
+
+function resetRoomForNextGame(optionalNextMysteryId) {
+  const s = appState.sessionData;
+  if (!s) return;
+  const packIds = Object.keys(MYSTERY_PACKS);
+  const currentIdx = packIds.indexOf(s.mysteryId);
+  const nextMysteryId = optionalNextMysteryId || packIds[(currentIdx + 1) % packIds.length] || s.mysteryId;
+  const nextPack = getEffectivePack(nextMysteryId, 0);
+  const now = Date.now();
+
+  const evObj = {
+    id: "ev_nextgame_" + now,
+    type: "init",
+    text: `Room ${s.roomCode} reset to Lobby for ${nextPack.title}! All players & TV remain connected.`
+  };
+
+  if (firebaseDb && appState.roomCode) {
+    const fbUpdates = {
+      mysteryId: nextMysteryId,
+      round: 0,
+      midTwistTriggered: false,
+      accomplicePlayerId: null,
+      isPaused: false,
+      pausedRemainingMs: null,
+      phaseEndsAt: null,
+      sabotageCooldownUntil: null,
+      sabotageBlackoutUntil: null,
+      publicClues: null,
+      votes: null,
+      awardVotes: null,
+      latestEvent: evObj,
+      updatedAt: now
+    };
+    Object.keys(s.players || {}).forEach(pid => {
+      fbUpdates[`players/${pid}/characterId`] = null;
+      fbUpdates[`players/${pid}/sharedAlibi`] = false;
+      fbUpdates[`players/${pid}/isAccomplice`] = false;
+      fbUpdates[`players/${pid}/patDownTokens`] = 1;
+      fbUpdates[`players/${pid}/unlockedPrivateClues`] = null;
+      fbUpdates[`players/${pid}/plantedDecoys`] = null;
+    });
+    firebaseDb.ref(`mystery_rooms/${appState.roomCode}`).update(fbUpdates);
+  } else {
+    const copy = JSON.parse(JSON.stringify(s));
+    copy.mysteryId = nextMysteryId;
+    copy.round = 0;
+    copy.midTwistTriggered = false;
+    copy.accomplicePlayerId = null;
+    copy.isPaused = false;
+    copy.pausedRemainingMs = null;
+    copy.phaseEndsAt = null;
+    copy.sabotageCooldownUntil = null;
+    copy.sabotageBlackoutUntil = null;
+    copy.publicClues = {};
+    copy.votes = {};
+    copy.awardVotes = {};
+    copy.latestEvent = evObj;
+    Object.keys(copy.players || {}).forEach(pid => {
+      copy.players[pid].characterId = null;
+      copy.players[pid].sharedAlibi = false;
+      copy.players[pid].isAccomplice = false;
+      copy.players[pid].patDownTokens = 1;
+      copy.players[pid].unlockedPrivateClues = {};
+      copy.players[pid].plantedDecoys = {};
+    });
+    writeRoomState(copy);
+  }
 }
 
 /* ============================================================================
@@ -4335,12 +4643,27 @@ function handleJoinTVExisting() {
 
 function renderAwardsBanner(s, pack) {
   const awards = computeAwardWinners(s, pack);
+  const hasSuperlatives = awards.roleplayers.length > 0 || awards.pokerfaces.length > 0;
   return `
-    <div class="bg-emerald-950/40 border border-emerald-600/70 rounded-xl p-3.5">
-      <div class="text-xs font-mono-code uppercase text-emerald-300 font-bold">🏆 Master Sleuths (Correctly Caught the Killer)</div>
-      <div class="text-sm font-bold text-white mt-1 leading-snug">
-        ${awards.sleuths.length > 0 ? escapeHtml(awards.sleuths.join(", ")) : "Nobody Caught the Killer — The Killer Escaped!"}
+    <div class="space-y-2">
+      <div class="bg-emerald-950/40 border border-emerald-600/70 rounded-xl p-3">
+        <div class="text-xs font-mono-code uppercase text-emerald-300 font-bold">🏆 Master Sleuths (Correctly Caught the Killer)</div>
+        <div class="text-sm font-bold text-white mt-0.5 leading-snug">
+          ${awards.sleuths.length > 0 ? escapeHtml(awards.sleuths.join(", ")) : "Nobody Caught the Killer — The Killer Escaped!"}
+        </div>
       </div>
+      ${hasSuperlatives ? `
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div class="bg-amber-950/30 border border-amber-700/60 rounded-xl p-2.5">
+            <div class="text-[10px] font-mono-code uppercase text-amber-300 font-bold">🎭 Best Roleplayer / Costume</div>
+            <div class="text-xs font-bold text-white mt-0.5 truncate">${awards.roleplayers.length > 0 ? escapeHtml(awards.roleplayers.join(", ")) : "No votes cast"}</div>
+          </div>
+          <div class="bg-fuchsia-950/30 border border-fuchsia-700/60 rounded-xl p-2.5">
+            <div class="text-[10px] font-mono-code uppercase text-fuchsia-300 font-bold">🤥 Best Poker Face</div>
+            <div class="text-xs font-bold text-white mt-0.5 truncate">${awards.pokerfaces.length > 0 ? escapeHtml(awards.pokerfaces.join(", ")) : "No votes cast"}</div>
+          </div>
+        </div>
+      ` : ""}
     </div>
   `;
 }
@@ -4388,6 +4711,9 @@ function renderTVDashboard() {
             <button onclick="soundFX.toggleAmbient()" class="text-[11px] bg-slate-800 hover:bg-slate-700 ${soundFX.ambientEnabled ? 'text-cyan-300 border-cyan-800' : 'text-slate-400 border-slate-700'} px-2.5 py-0.5 rounded-lg border">
               🎵 Ambient: ${soundFX.ambientEnabled ? 'ON' : 'OFF'}
             </button>
+            <button onclick="toggleTvControls()" class="text-[11px] bg-slate-800 hover:bg-slate-700 ${appState.tvControlsOpen ? 'text-indigo-300 border-indigo-600' : 'text-slate-300 border-slate-700'} px-2.5 py-0.5 rounded-lg border">
+              ⚙️ TV Host Controls ${appState.tvControlsOpen ? '▲' : '▼'}
+            </button>
           </div>
           <div class="flex items-baseline gap-3 mt-1 truncate">
             <h1 class="text-lg lg:text-2xl font-serif-title font-extrabold text-white truncate">
@@ -4409,10 +4735,40 @@ function renderTVDashboard() {
               <div class="text-[10px] font-mono-code text-slate-400 uppercase leading-none">Room Code</div>
               <div class="text-2xl lg:text-4xl font-mono-code font-extrabold text-indigo-400 tracking-widest leading-tight">${escapeHtml(s.roomCode)}</div>
             </div>
-            <div id="tvQrContainer" class="tvQrTarget w-14 h-14 lg:w-16 lg:h-16 bg-white p-1 rounded-xl shadow-md shrink-0 flex items-center justify-center"></div>
+            <div class="tvQrTarget w-14 h-14 lg:w-16 lg:h-16 bg-white p-1 rounded-xl shadow-md shrink-0 flex items-center justify-center"></div>
           ` : ""}
         </div>
       </div>
+
+      ${appState.tvControlsOpen ? `
+        <div class="shrink-0 bg-slate-900/95 border border-indigo-700/80 rounded-xl px-4 py-2 flex flex-wrap items-center justify-between gap-2 shadow-lg">
+          <span class="text-xs font-mono-code uppercase font-bold text-indigo-300">📺 Backup TV Host Controls (Round ${s.round}/4)</span>
+          <div class="flex flex-wrap items-center gap-2">
+            ${s.round === 0 ? `
+              <select onchange="changeRoomMystery(this.value)" class="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white">
+                ${packList.map((m, idx) => `<option value="${m.id}" ${m.id === s.mysteryId ? 'selected' : ''}>${idx + 1}. ${escapeHtml(m.title)}</option>`).join("")}
+              </select>
+              <button onclick="addDemoPlayersToFillSix()" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">+ Fill 6 Demo Bots</button>
+              <button onclick="assignCharactersAndStartAct1()" class="px-3 py-1 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white">🎲 Start Act I</button>
+            ` : s.round === 1 ? `
+              <button onclick="toggleTimerPause()" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-200 border border-slate-700">${s.isPaused ? '▶ Resume' : '⏸ Pause'}</button>
+              <button onclick="addFiveMinutesToTimer()" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 text-amber-300 border border-slate-700">+5m</button>
+              <button onclick="triggerBlackoutMurder()" class="px-3 py-1 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white">⚡ Trigger Blackout (Act II)</button>
+            ` : s.round === 2 ? `
+              <button onclick="toggleTimerPause()" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-200 border border-slate-700">${s.isPaused ? '▶ Resume' : '⏸ Pause'}</button>
+              <button onclick="addFiveMinutesToTimer()" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 text-amber-300 border border-slate-700">+5m</button>
+              ${!s.midTwistTriggered ? `<button onclick="triggerMidRoundTwist()" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-fuchsia-700 text-white">🚨 Fire Twist</button>` : ""}
+              <button onclick="advanceToAct3Voting()" class="px-3 py-1 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white">🗳️ Open Voting (Act III)</button>
+            ` : s.round === 3 ? `
+              <button onclick="toggleTimerPause()" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-200 border border-slate-700">${s.isPaused ? '▶ Resume' : '⏸ Pause'}</button>
+              <button onclick="revealFinalSolution()" class="px-3 py-1 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white">🎭 Reveal Solution (Act IV)</button>
+            ` : `
+              <button onclick="resetRoomForNextGame()" class="px-3 py-1 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white">🔄 Next Mystery in Same Room</button>
+              <button onclick="resetRoomForNextGame('${escapeHtml(s.mysteryId)}')" class="px-3 py-1 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">🎲 Replay Same Pack (Fresh Ending)</button>
+            `}
+          </div>
+        </div>
+      ` : ""}
 
       <!-- FULL-WIDTH LIVE NEWS TICKER BAR (DIRECTLY BELOW HEADER) -->
       <div class="shrink-0 w-full bg-slate-900/95 border border-slate-800 rounded-xl px-4 py-1.5 overflow-hidden flex items-center gap-3 shadow-md">
@@ -4434,7 +4790,7 @@ function renderTVDashboard() {
             <div class="flex-1 min-h-0 flex flex-col justify-between space-y-3 overflow-hidden">
               <div class="flex items-center justify-between gap-2 shrink-0">
                 <h2 class="text-lg font-bold text-white">Scan QR Code or Enter Room Code to Join</h2>
-                <span class="text-xs font-mono-code text-slate-400">Managed from Host Phone</span>
+                <span class="text-xs font-mono-code text-slate-400">Managed from Host Phone or TV Controls</span>
               </div>
 
               <!-- EXTRA-LARGE LOBBY QR CODE & JOIN BANNER -->
@@ -4462,9 +4818,14 @@ function renderTVDashboard() {
           ` : s.round === 4 ? `
             <div class="flex-1 min-h-0 flex flex-col justify-between space-y-2.5 overflow-hidden">
               <div class="space-y-2 shrink-0">
-                <div class="flex flex-wrap items-center gap-2">
-                  <span class="px-2.5 py-0.5 rounded bg-rose-950 text-rose-300 border border-rose-700 text-xs font-mono-code uppercase">Official Case Confession (${pack.activeVariantLabel})</span>
-                  ${accPlayer ? `<span class="px-2.5 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-700 text-xs font-mono-code">🤝 Accomplice: ${escapeHtml(accPlayer.name)}</span>` : ""}
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span class="px-2.5 py-0.5 rounded bg-rose-950 text-rose-300 border border-rose-700 text-xs font-mono-code uppercase">Official Case Confession (${pack.activeVariantLabel})</span>
+                    ${accPlayer ? `<span class="px-2.5 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-700 text-xs font-mono-code">🤝 Accomplice: ${escapeHtml(accPlayer.name)}</span>` : ""}
+                  </div>
+                  <button onclick="resetRoomForNextGame()" class="px-3 py-1 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow">
+                    🔄 Next Mystery (Keep Room)
+                  </button>
                 </div>
                 ${renderAwardsBanner(s, pack)}
               </div>
@@ -4690,16 +5051,22 @@ function renderTVQRCode() {
 
   setTimeout(() => {
     const canvas = firstContainer.querySelector("canvas");
+    const fallbackImg = firstContainer.querySelector("img");
+    let dataUrl = null;
     if (canvas) {
-      try {
-        cachedQRDataUrl = canvas.toDataURL();
-        lastRenderedQRRoom = code;
-        containers.forEach(c => {
-          c.innerHTML = `<img src="${cachedQRDataUrl}" alt="Join QR" width="${qrSize}" height="${qrSize}" />`;
-        });
-      } catch (e) {}
+      try { dataUrl = canvas.toDataURL(); } catch (e) {}
     }
-  }, 50);
+    if (!dataUrl && fallbackImg && fallbackImg.src) {
+      dataUrl = fallbackImg.src;
+    }
+    if (dataUrl) {
+      cachedQRDataUrl = dataUrl;
+      lastRenderedQRRoom = code;
+      containers.forEach(c => {
+        c.innerHTML = `<img src="${cachedQRDataUrl}" alt="Join QR" width="${qrSize}" height="${qrSize}" />`;
+      });
+    }
+  }, 60);
 }
 
 function renderMobileCorkboard(s, pack, activeSuspects) {
@@ -4860,7 +5227,7 @@ function renderMobilePlayerView() {
         </div>
 
         ${s.round === 0 ? `
-          <div class="mt-4 text-center py-5 space-y-3">
+          <div class="mt-4 text-center py-4 space-y-3">
             <div class="flex justify-center">
               ${renderMugshotAvatar(me || { name: appState.playerName, mugshot: appState.playerMugshot }, false, "w-20 h-20")}
             </div>
@@ -4869,6 +5236,24 @@ function renderMobilePlayerView() {
               <p class="text-xs text-slate-400 mt-1">
                 Tap your mugshot above to view or retake it. Waiting for the Host to deal character roles (${allPlayersList.length}/10 players connected).
               </p>
+            </div>
+            <div class="text-left bg-slate-950/90 border border-slate-800 rounded-xl p-3 space-y-2">
+              <div class="text-[11px] font-mono-code uppercase text-indigo-300 font-bold">📖 Tonight's Setting</div>
+              <p class="text-xs text-slate-300 leading-relaxed">"${escapeHtml(pack.settingIntro)}"</p>
+              <button type="button" onclick="toggleLobbyPreview()" class="w-full py-2 px-3 rounded-lg text-xs font-mono-code font-bold bg-slate-900 hover:bg-slate-800 text-amber-300 border border-slate-800 flex items-center justify-between transition">
+                <span>🎭 Cast & Costume Guide (${pack.characters.length} Roles)</span>
+                <span>${appState.lobbyPreviewOpen ? '▲ Hide' : '▼ Preview'}</span>
+              </button>
+              ${appState.lobbyPreviewOpen ? `
+                <div data-scroll-id="lobbyCastPreviewScroll" class="space-y-1.5 max-h-60 overflow-y-auto pt-1 pr-1">
+                  ${pack.characters.map(c => `
+                    <div class="p-2 rounded-lg bg-slate-900/90 border border-slate-800/80">
+                      <div class="text-xs font-bold text-white">${escapeHtml(c.name)}</div>
+                      <div class="text-[11px] text-amber-300/90 mt-0.5">👗 ${escapeHtml(c.costume || "Dress to impress")}</div>
+                    </div>
+                  `).join("")}
+                </div>
+              ` : ""}
             </div>
           </div>
         ` : myChar ? `
@@ -4887,7 +5272,12 @@ function renderMobilePlayerView() {
                 </span>
               ` : ""}
             </div>
-            <p class="text-xs text-slate-200 mt-2.5 leading-relaxed bg-slate-950 p-3 rounded-xl border border-slate-800">
+            ${myChar.costume ? `
+              <div class="mt-2.5 px-3 py-1.5 rounded-lg bg-indigo-950/40 border border-indigo-800/60 text-[11px] text-indigo-200">
+                <strong class="text-indigo-300 font-mono-code uppercase">🎭 Costume & Vibe:</strong> ${escapeHtml(myChar.costume)}
+              </div>
+            ` : ""}
+            <p class="text-xs text-slate-200 mt-2 leading-relaxed bg-slate-950 p-3 rounded-xl border border-slate-800">
               ${escapeHtml(myChar.bio)}
             </p>
           </div>
@@ -4941,11 +5331,25 @@ function renderMobilePlayerView() {
             </div>
 
             <div class="pt-3 border-t border-rose-800/80">
-              <div class="text-xs font-mono-code uppercase font-bold text-emerald-300 mb-1">👻 STEP 1: FORENSIC AUTOPSY LAB</div>
+              <div class="text-xs font-mono-code uppercase font-bold text-emerald-300 mb-1">👻 STEP 1: FORENSIC AUTOPSY LAB & VICTIM NOTE</div>
               <p class="text-xs text-slate-200 mb-2.5">
-                Broadcast the 3 official crime scene forensic reports to the Smart TV and all phones:
+                Broadcast your pocket lead and the 3 official crime scene forensic reports to the Smart TV and all phones:
               </p>
               <div class="space-y-2">
+                ${myChar.searchClue ? (() => {
+                  const noteSent = cluesList.some(c => c.id === "victim_note_0");
+                  return `
+                    <div class="bg-slate-950/90 border border-indigo-700/80 rounded-xl p-3 flex items-center justify-between gap-2">
+                      <div>
+                        <div class="text-xs font-bold text-indigo-300">📜 Victim's Pocket Note (Lead)</div>
+                        <div class="text-[11px] text-slate-300">${escapeHtml(myChar.searchClue)}</div>
+                      </div>
+                      <button onclick="releaseVictimPocketNote()" ${noteSent ? 'disabled' : ''} class="shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold ${noteSent ? 'bg-slate-800 text-slate-500' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}">
+                        ${noteSent ? 'Sent ✓' : 'Broadcast'}
+                      </button>
+                    </div>
+                  `;
+                })() : ""}
                 ${pack.forensicAutopsy.map(f => {
                   const alreadySent = cluesList.some(c => c.id === f.id);
                   return `
@@ -5089,9 +5493,46 @@ function renderMobilePlayerView() {
           </div>
         ` : `
           <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 text-center text-xs text-slate-300">
-            Suspects are currently casting their final votes on their phones!
+            Suspects are currently casting their final Killer accusations on their phones! Cast your Party Superlative votes below:
           </div>
         `}
+
+        ${allPlayersList.length > 0 ? `
+          <div class="bg-slate-900 border border-fuchsia-700/60 rounded-2xl p-4 space-y-3 shadow-lg">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-mono-code uppercase font-bold text-fuchsia-300">🏆 Party Superlative Awards (Bonus Vote)</span>
+              <span class="text-[10px] text-slate-400">Crowned on TV in Act IV</span>
+            </div>
+            <div class="space-y-2.5">
+              <div>
+                <div class="text-[11px] font-bold text-amber-300 mb-1.5">🎭 Best Roleplayer / Costume</div>
+                <div class="flex flex-wrap gap-1.5">
+                  ${allPlayersList.map(p => {
+                    const picked = s.awardVotes?.roleplayer?.[appState.playerId] === p.id;
+                    return `
+                      <button type="button" onclick="submitAwardVote('${appState.playerId}', 'roleplayer', '${escapeHtml(p.id)}')" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition ${picked ? 'bg-amber-600 text-white border-amber-300 shadow' : 'bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-600'}">
+                        ${escapeHtml(p.name)} ${picked ? '✓' : ''}
+                      </button>
+                    `;
+                  }).join("")}
+                </div>
+              </div>
+              <div>
+                <div class="text-[11px] font-bold text-fuchsia-300 mb-1.5">🤥 Best Poker Face / Most Deceptive</div>
+                <div class="flex flex-wrap gap-1.5">
+                  ${allPlayersList.map(p => {
+                    const picked = s.awardVotes?.pokerface?.[appState.playerId] === p.id;
+                    return `
+                      <button type="button" onclick="submitAwardVote('${appState.playerId}', 'pokerface', '${escapeHtml(p.id)}')" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition ${picked ? 'bg-fuchsia-600 text-white border-fuchsia-300 shadow' : 'bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-600'}">
+                        ${escapeHtml(p.name)} ${picked ? '✓' : ''}
+                      </button>
+                    `;
+                  }).join("")}
+                </div>
+              </div>
+            </div>
+          </div>
+        ` : ""}
       ` : ""}
 
       ${s.round === 4 ? `
@@ -5128,10 +5569,21 @@ function renderMobilePlayerView() {
               <select onchange="changeRoomMystery(this.value)" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white whitespace-normal break-words">
                 ${packList.map((m, idx) => `<option value="${m.id}" ${m.id === s.mysteryId ? 'selected' : ''}>${idx + 1}. ${escapeHtml(m.title)}</option>`).join("")}
               </select>
-              <label class="flex items-center justify-between bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 cursor-pointer">
-                <span>🤝 Enable Secret Accomplice Role</span>
-                <input type="checkbox" ${s.accompliceEnabled ? 'checked' : ''} onchange="toggleAccompliceOption(this.checked)" class="w-4 h-4 accent-indigo-500 rounded" />
-              </label>
+              <div class="grid grid-cols-1 gap-2">
+                <label class="flex items-center justify-between bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200">
+                  <span>🎲 Ending Variant Selection</span>
+                  <select onchange="setPreferredVariant(this.value)" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-amber-300">
+                    <option value="auto" ${appState.preferredVariant === 'auto' ? 'selected' : ''}>Auto (Unplayed First)</option>
+                    <option value="0" ${appState.preferredVariant === '0' ? 'selected' : ''}>Ending Variant A</option>
+                    <option value="1" ${appState.preferredVariant === '1' ? 'selected' : ''}>Ending Variant B</option>
+                    <option value="2" ${appState.preferredVariant === '2' ? 'selected' : ''}>Ending Variant C</option>
+                  </select>
+                </label>
+                <label class="flex items-center justify-between bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 cursor-pointer">
+                  <span>🤝 Enable Secret Accomplice Role</span>
+                  <input type="checkbox" ${s.accompliceEnabled ? 'checked' : ''} onchange="toggleAccompliceOption(this.checked)" class="w-4 h-4 accent-indigo-500 rounded" />
+                </label>
+              </div>
               <div class="flex gap-2 pt-1">
                 <button onclick="addDemoPlayersToFillSix()" class="flex-1 py-2.5 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700">
                   + Fill 6 Demo Bots
@@ -5161,9 +5613,14 @@ function renderMobilePlayerView() {
               🎭 Reveal Final Solution (Act IV)
             </button>
           ` : `
-            <button onclick="createNewRoom(appState.sessionData.mysteryId, 'player')" class="w-full py-2.5 rounded-xl text-xs font-bold bg-indigo-600 text-white">
-              🔄 Start New Game Room (Rolls Fresh Ending!)
-            </button>
+            <div class="space-y-2">
+              <button onclick="resetRoomForNextGame()" class="w-full py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow">
+                🔄 Next Mystery in Same Room (Keep TV & Players!)
+              </button>
+              <button onclick="resetRoomForNextGame('${escapeHtml(s.mysteryId)}')" class="w-full py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">
+                🎲 Replay This Mystery (Rolls Unplayed Ending!)
+              </button>
+            </div>
           `}
         </div>
       ` : ""}
