@@ -2854,7 +2854,7 @@ function renderMugshotAvatar(playerObj, isGhost = false, sizeClass = "w-10 h-10"
          title="${hasPhoto ? 'Tap to enlarge mugshot' : 'Tap to take mugshot'}"
          class="relative ${sizeClass} rounded-xl overflow-hidden border ${isGhost ? 'border-rose-500' : 'border-slate-700'} bg-slate-900 shrink-0 flex items-center justify-center ${clickable ? 'cursor-pointer hover:ring-2 hover:ring-indigo-400 active:scale-95 transition' : ''}">
       ${hasPhoto
-        ? `<img src="${playerObj.mugshot}" alt="${escapeHtml(playerObj.name)}" class="w-full h-full object-cover" />`
+        ? `<img src="${escapeHtml(playerObj.mugshot)}" alt="${escapeHtml(playerObj.name)}" class="w-full h-full object-cover" />`
         : `<span class="text-xs font-mono-code font-bold text-slate-400">${escapeHtml(initials)}</span>`
       }
       ${hasPhoto ? `
@@ -2962,7 +2962,7 @@ function autoPurgeExpiredRooms() {
   } catch (e) {}
 
   if (!firebaseDb) return;
-  firebaseDb.ref("mystery_rooms").once("value", (snap) => {
+  firebaseDb.ref("mystery_rooms").orderByChild("updatedAt").endAt(cutoff).once("value", (snap) => {
     const rooms = snap.val();
     if (!rooms) return;
     const updates = {};
