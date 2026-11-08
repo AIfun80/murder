@@ -78,6 +78,22 @@
       height: 100% !important;
       object-fit: contain;
     }
+
+    /* Guide step highlighter pulse (Flip7 style) */
+    @keyframes targetGlow {
+      0%, 100% {
+        box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.4), 0 0 16px rgba(245, 158, 11, 0.25);
+        border-color: rgba(245, 158, 11, 0.9);
+      }
+      50% {
+        box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.8), 0 0 28px rgba(245, 158, 11, 0.6);
+        border-color: rgba(251, 191, 36, 1);
+      }
+    }
+    .guide-highlight {
+      animation: targetGlow 1.8s infinite ease-in-out;
+      position: relative;
+    }
   </style>
 </head>
 <body class="min-h-screen flex flex-col bg-slate-950 text-slate-100 select-none">
@@ -91,6 +107,10 @@
     </div>
     <div class="flex items-center gap-2">
       <span id="timerBadge" class="hidden font-mono-code text-xs md:text-sm bg-slate-800 text-amber-300 border border-slate-700 px-2.5 py-1 rounded">00:00</span>
+      <button id="guideTopBtn" onclick="openAppOverviewModal()" title="View Rules & App Guide" class="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-600/80 hover:bg-indigo-600 text-white font-bold rounded-lg text-xs transition active:scale-95">
+        <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 16h-2v-2h2v2zm1.07-7.75l-.9.92C12.45 11.9 12 12.5 12 14h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H7c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.04-.42 1.99-1.07 2.75z"/></svg>
+        Guide
+      </button>
       <button id="claimHostTopBtn" onclick="claimHostRole()" class="hidden text-xs bg-amber-950/80 hover:bg-amber-900 text-amber-300 px-2.5 py-1 rounded border border-amber-700/70 transition">
         👑 Claim Host
       </button>
@@ -148,6 +168,44 @@
         <button onclick="closeMugshotPreviewModal()" class="flex-1 py-2.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">
           Close
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VISUAL WALKTHROUGH GUIDE MODAL (FLIP7 STYLE) -->
+  <div id="appOverviewModal" onclick="if(event.target === this) closeAppOverviewModal()" class="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md hidden p-3 md:p-6">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-2xl w-full p-5 md:p-6 shadow-2xl text-left h-[540px] max-h-[92vh] flex flex-col justify-between">
+      <div class="flex items-center justify-between pb-2.5 border-b border-slate-700 shrink-0">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-mono-code uppercase tracking-wider text-indigo-300 font-bold">🕵️ Quick Guide</span>
+          <div class="flex items-center gap-1.5" id="guideStepDots"></div>
+        </div>
+        <button onclick="closeAppOverviewModal()" class="text-slate-400 hover:text-white text-xl p-1 transition" title="Close Guide">&times;</button>
+      </div>
+
+      <div class="space-y-3 overflow-y-auto pr-1 flex-1 py-2 text-xs text-slate-300 leading-relaxed">
+        <div class="space-y-1">
+          <h4 id="guideTitle" class="text-sm font-bold text-amber-400"></h4>
+          <p id="guideDescription" class="text-slate-200 text-xs leading-relaxed"></p>
+        </div>
+        <div class="space-y-1">
+          <div id="guideScreenshotFrame" class="bg-slate-900/90 border border-slate-700/80 rounded-xl p-3 md:p-4 shadow-inner overflow-hidden"></div>
+        </div>
+        <div id="guideBulletPoints" class="bg-slate-900/50 border border-slate-700/60 rounded-xl p-3 space-y-2 text-xs hidden"></div>
+      </div>
+
+      <div class="pt-3 border-t border-slate-700 flex items-center justify-between gap-3 shrink-0">
+        <button id="guidePrevBtn" onclick="prevGuideStep()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-30 disabled:pointer-events-none text-slate-200 font-bold rounded-xl text-xs transition active:scale-95 flex items-center gap-1">
+          <span>←</span> Previous
+        </button>
+        <div class="flex items-center gap-2">
+          <button onclick="closeAppOverviewModal()" class="px-3 py-2 text-slate-400 hover:text-white font-medium text-xs transition">
+            Skip Tour
+          </button>
+          <button id="guideNextBtn" onclick="nextGuideStep()" class="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs transition shadow-md active:scale-95 flex items-center gap-1">
+            <span>Next</span> <span>→</span>
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -4977,6 +5035,10 @@ function renderTVDashboard() {
             <button onclick="toggleTvControls()" class="text-[11px] bg-slate-800 hover:bg-slate-700 ${appState.tvControlsOpen ? 'text-indigo-300 border-indigo-600' : 'text-slate-300 border-slate-700'} px-2.5 py-0.5 rounded-lg border">
               ⚙️ TV Host Controls ${appState.tvControlsOpen ? '▲' : '▼'}
             </button>
+            <button onclick="openAppOverviewModal()" title="View Rules & App Guide" class="flex items-center gap-1 text-[11px] bg-indigo-600/80 hover:bg-indigo-600 text-white font-bold px-2.5 py-0.5 rounded-lg border border-indigo-500 transition">
+              <svg class="w-3 h-3 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 16h-2v-2h2v2zm1.07-7.75l-.9.92C12.45 11.9 12 12.5 12 14h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H7c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.04-.42 1.99-1.07 2.75z"/></svg>
+              Guide
+            </button>
           </div>
           <div class="flex items-baseline gap-3 mt-1 truncate">
             <h1 class="text-lg lg:text-2xl font-serif-title font-extrabold text-white truncate">
@@ -5985,7 +6047,237 @@ function renderMobilePlayerView() {
 }
 
 /* ============================================================================
-   8. URL PARAMETER BOOTSTRAP
+   8. VISUAL WALKTHROUGH GUIDE MODAL (FLIP7-STYLE INTERACTIVE TOUR)
+   NOTE: Whenever new features or UI changes are made to the app, update
+   `guideSteps` below so the in-app Guide stays 100% in sync!
+   ============================================================================ */
+let currentGuideStep = 0;
+
+const guideSteps = [
+  {
+    title: "1. Launch TV Display & Scan QR to Join (4–10 Players)",
+    desc: "Open this page on a Smart TV or laptop to launch the TV Display, or start a room directly from your phone. Players scan the TV QR code (or enter the 4-letter Room Code) to join and snap a Noir Mugshot.",
+    mockup: `
+      <div class="space-y-2.5">
+        <div class="flex items-center justify-between bg-slate-950 px-3 py-2 rounded-xl border border-indigo-500/60 text-xs">
+          <div class="flex items-center gap-2">
+            <span class="text-slate-400 font-mono-code uppercase">Room Code:</span>
+            <span class="font-mono-code text-base font-extrabold text-indigo-400 tracking-widest">NOIR</span>
+          </div>
+          <span class="px-2.5 py-1 rounded-lg bg-indigo-600 text-white font-bold text-xs">📱 Scan TV QR to Join</span>
+        </div>
+        <div class="guide-highlight bg-slate-800/95 p-3 rounded-xl border border-amber-500/80 space-y-2 shadow-lg">
+          <div class="flex items-center justify-between text-xs">
+            <span class="font-mono-code font-bold text-indigo-300 uppercase">👑 Spoiler-Free Host Lobby</span>
+            <span class="text-[11px] font-mono-code text-emerald-300">8 Packs • 24 Endings</span>
+          </div>
+          <div class="grid grid-cols-2 gap-1.5 text-[11px]">
+            <div class="bg-slate-950 border border-slate-700 rounded-lg p-2 text-cyan-300 font-semibold">
+              ⏱ Preset: 🕵️ Standard (~45m)
+            </div>
+            <div class="bg-slate-950 border border-slate-700 rounded-lg p-2 text-amber-300 font-semibold">
+              🎲 Ending: Auto (Unplayed First)
+            </div>
+          </div>
+          <div class="flex items-center justify-between pt-1">
+            <span class="text-[11px] text-slate-300">🎭 Cast & Costume Guide Preview</span>
+            <span class="px-3 py-1 bg-emerald-600 text-white font-bold text-xs rounded-lg">🎲 Roll Killer & Start</span>
+          </div>
+        </div>
+      </div>
+    `,
+    bullets: [
+      "<strong>8 Mystery Cartridges × 3 Endings (24 Whodunits):</strong> Auto mode tracks which endings you've played so replays always pick a fresh Killer and solution.",
+      "<strong>⏱ Game Length Presets:</strong> Choose <em>⚡ Quick (~25m)</em>, <em>🕵️ Standard (~45m)</em>, or <em>🍷 Extended (~60m)</em> in the Lobby.",
+      "<strong>🔊 Use My Phone as TV Speaker:</strong> Hosts can toggle Phone Speaker mode ON to play all TV voice bulletins, ambient music, and blackout sirens through their phone or Bluetooth speaker."
+    ]
+  },
+  {
+    title: "2. Act I — Mingle, Costumes & Icebreaker Mini-Missions",
+    desc: "Everyone is alive in Act I! Read your secret character dossier and costume vibe on your phone, mingle in character, and check off your 3 Act I Icebreaker Mini-Missions.",
+    mockup: `
+      <div class="space-y-2.5">
+        <div class="guide-highlight bg-slate-900 p-3 rounded-xl border border-amber-500/80 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-mono-code uppercase font-bold text-amber-300">🥂 Act I Icebreaker Mini-Missions (3/3)</span>
+            <span class="text-[10px] font-mono-code px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-700 font-bold">
+              🎁 +1 Pat-Down Token Unlocked!
+            </span>
+          </div>
+          <div class="space-y-1 text-xs">
+            <div class="p-1.5 rounded bg-emerald-950/40 border border-emerald-700/70 text-emerald-200 line-through">✓ 🥂 Greet or clink glasses with the Guest of Honor</div>
+            <div class="p-1.5 rounded bg-emerald-950/40 border border-emerald-700/70 text-emerald-200 line-through">✓ 🕵️ Ask 2 other suspects where they were before the party</div>
+            <div class="p-1.5 rounded bg-emerald-950/40 border border-emerald-700/70 text-emerald-200 line-through">✓ 🎭 Introduce yourself in-character & show off your costume vibe</div>
+          </div>
+        </div>
+      </div>
+    `,
+    bullets: [
+      "<strong>🎁 Bonus Pat-Down Token:</strong> Completing all 3 friendly Act I mingle prompts automatically rewards you with <strong>+1 Bonus Pat-Down Token</strong> for Act II!",
+      "<strong>⚡ Triggering the Murder:</strong> Once everyone has mingled, the secret Killer (or Host) taps <em>Execute Secret Strike (Trigger Blackout)</em> to plunge the room into Act II."
+    ]
+  },
+  {
+    title: "3. Act II — Ghost Investigator & 60s 'Hot Seat' Spotlight",
+    desc: "When the Blackout Murder strikes, the Victim becomes the Ghost Investigator! They read their dramatic death scene aloud, broadcast Forensic Autopsy clues, and put suspects on the 60-second TV Hot Seat.",
+    mockup: `
+      <div class="space-y-2.5">
+        <div class="guide-highlight bg-amber-950/80 border-2 border-amber-400 rounded-xl p-3 space-y-2">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-[10px] font-mono-code uppercase font-extrabold text-amber-300">🔦 60-SECOND HOT SEAT INTERROGATION SPOTLIGHT</div>
+              <div class="text-xs font-extrabold text-white">Dr. Aris Thorne (Chief Medical Officer)</div>
+            </div>
+            <span class="text-base font-mono-code font-extrabold px-2.5 py-0.5 rounded-lg bg-black/70 text-amber-300 border border-amber-400">48s</span>
+          </div>
+          <div class="text-[11px] bg-slate-950/90 border border-amber-700/60 rounded-lg p-2 text-slate-200">
+            <strong class="text-cyan-300 font-mono-code uppercase">Official Alibi:</strong> "I was in Hydroponics Bay 2 checking oxygen scrubbers..."
+          </div>
+        </div>
+      </div>
+    `,
+    bullets: [
+      "<strong>📜 Victim's Pocket Note & Autopsy Lab:</strong> In Step 1, the Ghost Investigator broadcasts their pocket lead and 3 forensic reports to the TV and all phones.",
+      "<strong>🔦 60s Hot Seat Spotlight:</strong> In Step 2, the Ghost Investigator can tap <em>🔦 Hot Seat</em> on any suspect to project their mugshot, 60s timer, alibi, and leaked evidence onto the TV while the room interrogates them!"
+    ]
+  },
+  {
+    title: "4. Act II — 1-on-1 PIN Pat-Downs, Corkboard & Suspicion Meter",
+    desc: "Corner suspects in person and ask for their 2-digit Pat-Down PIN to privately inspect their belongings on your phone, and track suspects on your Red-String Corkboard.",
+    mockup: `
+      <div class="space-y-2">
+        <div class="bg-slate-950 border border-indigo-700/80 p-2.5 rounded-xl flex items-center justify-between gap-2 text-xs">
+          <span class="font-mono-code text-indigo-300 font-bold">🕵️ 1-on-1 PIN Pat-Down:</span>
+          <div class="flex items-center gap-1.5">
+            <span class="px-2.5 py-1 bg-slate-900 border border-slate-700 rounded font-mono-code text-amber-300 font-bold">42</span>
+            <span class="px-2.5 py-1 bg-indigo-600 text-white rounded font-bold">🔎 Unlock</span>
+          </div>
+        </div>
+        <div class="guide-highlight bg-rose-950/60 border border-rose-500 p-2.5 rounded-xl flex items-center justify-between text-xs">
+          <span class="font-mono-code font-bold text-rose-200">🔥 2 suspects are highly suspicious</span>
+          <span class="text-[10px] font-mono-code text-rose-300">3+ Prime Targets</span>
+        </div>
+      </div>
+    `,
+    bullets: [
+      "<strong>📌 Red-String Detective Corkboard:</strong> Tap any suspect to cycle <em>❓ Suspect → ✅ Cleared → 🔪 Prime Target</em> and jot private notes.",
+      "<strong>🔥 Anonymous Suspicion Heat Meter:</strong> The TV Roster shows how many suspects currently have 3 or more <em>🔪 Prime Target</em> marks across the room—without revealing who they are!",
+      "<strong>🔪 Covert Killer Sabotage:</strong> Hidden inside the Killer's Corkboard are 20s TV/Pat-Down Blackout and Red Herring buttons (90s cooldown)."
+    ]
+  },
+  {
+    title: "5. Act III & IV — Final Tribunal, Superlative Awards & Replay",
+    desc: "In Act III, all remaining evidence is declassified on the TV. Everyone locks in their Final Killer Accusation and Party Superlative votes on their phones before the Act IV Reckoning!",
+    mockup: `
+      <div class="space-y-2">
+        <div class="guide-highlight bg-slate-900 border border-amber-500/80 p-3 rounded-xl space-y-2">
+          <div class="flex items-center justify-between text-xs">
+            <span class="font-mono-code font-bold text-amber-300 uppercase">🏆 Act IV Reckoning & Awards</span>
+            <span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-700 text-[10px] font-mono-code">Case Solved</span>
+          </div>
+          <div class="grid grid-cols-3 gap-1.5 text-[10px]">
+            <div class="bg-slate-950 border border-emerald-700/60 rounded p-1.5 text-emerald-300 font-bold">🕵️ Master Sleuths</div>
+            <div class="bg-slate-950 border border-amber-700/60 rounded p-1.5 text-amber-300 font-bold">🎭 Best Roleplayer</div>
+            <div class="bg-slate-950 border border-fuchsia-700/60 rounded p-1.5 text-fuchsia-300 font-bold">🤥 Best Poker Face</div>
+          </div>
+          <div class="pt-1 flex gap-1.5">
+            <span class="flex-1 text-center py-1.5 rounded-lg bg-indigo-600 text-white font-bold text-xs">🔄 Next Mystery in Same Room</span>
+          </div>
+        </div>
+      </div>
+    `,
+    bullets: [
+      "<strong>🏆 Party Superlative Awards:</strong> Vote in Act III for <em>🎭 Best Roleplayer / Costume</em> and <em>🤥 Best Poker Face</em>—winners are crowned alongside <em>🕵️ Master Sleuths</em> in Act IV.",
+      "<strong>🔄 Instant Next Game (Same Room Code):</strong> Tap <em>Next Mystery in Same Room</em> or <em>Replay This Mystery</em> in Act IV to keep the TV and all players connected without re-scanning QR codes!"
+    ]
+  }
+];
+
+function renderGuideStep(stepIndex) {
+  if (stepIndex < 0) stepIndex = 0;
+  if (stepIndex >= guideSteps.length) stepIndex = guideSteps.length - 1;
+  currentGuideStep = stepIndex;
+
+  const step = guideSteps[currentGuideStep];
+
+  const titleEl = document.getElementById("guideTitle");
+  const descEl = document.getElementById("guideDescription");
+  const frameEl = document.getElementById("guideScreenshotFrame");
+  if (titleEl) titleEl.innerText = step.title;
+  if (descEl) descEl.innerText = step.desc;
+  if (frameEl) frameEl.innerHTML = step.mockup;
+
+  const bulletsContainer = document.getElementById("guideBulletPoints");
+  if (bulletsContainer) {
+    if (step.bullets && step.bullets.length > 0) {
+      bulletsContainer.classList.remove("hidden");
+      bulletsContainer.innerHTML = step.bullets.map(b => `
+        <div class="flex items-start gap-2">
+          <span class="text-amber-400 text-xs mt-0.5">•</span>
+          <p class="text-slate-300 leading-relaxed text-xs">${b}</p>
+        </div>
+      `).join("");
+    } else {
+      bulletsContainer.classList.add("hidden");
+      bulletsContainer.innerHTML = "";
+    }
+  }
+
+  const dotsContainer = document.getElementById("guideStepDots");
+  if (dotsContainer) {
+    dotsContainer.innerHTML = guideSteps.map((_, i) => `
+      <button onclick="renderGuideStep(${i})" title="Go to step ${i + 1}" class="h-1.5 rounded-full transition-all ${
+        i === currentGuideStep
+          ? "w-6 bg-amber-400 shadow-sm shadow-amber-400/50"
+          : "w-2 bg-slate-700 hover:bg-slate-600"
+      }"></button>
+    `).join("");
+  }
+
+  const prevBtn = document.getElementById("guidePrevBtn");
+  const nextBtn = document.getElementById("guideNextBtn");
+  if (prevBtn) prevBtn.disabled = (currentGuideStep === 0);
+
+  if (nextBtn) {
+    if (currentGuideStep === guideSteps.length - 1) {
+      nextBtn.innerHTML = `<span>Done</span> <span class="text-slate-950 font-black">✓</span>`;
+      nextBtn.className = "px-5 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl text-xs transition shadow-md active:scale-95 flex items-center gap-1";
+    } else {
+      nextBtn.innerHTML = `<span>Next</span> <span>→</span>`;
+      nextBtn.className = "px-5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs transition shadow-md active:scale-95 flex items-center gap-1";
+    }
+  }
+}
+
+function prevGuideStep() {
+  if (currentGuideStep > 0) {
+    renderGuideStep(currentGuideStep - 1);
+  }
+}
+
+function nextGuideStep() {
+  if (currentGuideStep < guideSteps.length - 1) {
+    renderGuideStep(currentGuideStep + 1);
+  } else {
+    closeAppOverviewModal();
+  }
+}
+
+function openAppOverviewModal() {
+  const modal = document.getElementById("appOverviewModal");
+  if (modal) {
+    modal.classList.remove("hidden");
+    renderGuideStep(0);
+  }
+}
+
+function closeAppOverviewModal() {
+  const modal = document.getElementById("appOverviewModal");
+  if (modal) modal.classList.add("hidden");
+}
+
+/* ============================================================================
+   9. URL PARAMETER BOOTSTRAP
    ============================================================================ */
 window.addEventListener("DOMContentLoaded", () => {
   localStorage.removeItem("mm_force_local");
