@@ -99,22 +99,22 @@
 <body class="min-h-screen flex flex-col bg-slate-950 text-slate-100 select-none">
 
   <!-- TOP STATUS BAR -->
-  <header id="topBar" class="w-full bg-slate-900/90 border-b border-slate-800 px-4 py-2.5 flex items-center justify-between z-40">
-    <div class="flex items-center gap-3">
-      <span class="w-2.5 h-2.5 rounded-full bg-rose-500" id="syncDot"></span>
-      <span class="font-serif-title font-bold tracking-wider text-sm md:text-base text-rose-400">NOIR ENGINE</span>
-      <span id="modeBadge" class="hidden text-xs font-mono-code bg-emerald-950 text-emerald-300 px-2 py-0.5 rounded border border-emerald-700">SMART TV DISPLAY</span>
+  <header id="topBar" class="w-full bg-slate-900/90 border-b border-slate-800 px-2.5 sm:px-4 py-2 flex flex-wrap items-center justify-between gap-1.5 z-40">
+    <div class="flex items-center gap-2 shrink-0">
+      <span class="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0" id="syncDot"></span>
+      <span class="font-serif-title font-bold tracking-wider text-xs sm:text-base text-rose-400">NOIR ENGINE</span>
+      <span id="modeBadge" class="hidden text-[11px] sm:text-xs font-mono-code bg-emerald-950 text-emerald-300 px-2 py-0.5 rounded border border-emerald-700">SMART TV DISPLAY</span>
     </div>
-    <div class="flex items-center gap-2">
-      <span id="timerBadge" class="hidden font-mono-code text-xs md:text-sm bg-slate-800 text-amber-300 border border-slate-700 px-2.5 py-1 rounded">00:00</span>
-      <button id="guideTopBtn" onclick="openAppOverviewModal()" title="View Rules & App Guide" class="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-600/80 hover:bg-indigo-600 text-white font-bold rounded-lg text-xs transition active:scale-95">
-        <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 16h-2v-2h2v2zm1.07-7.75l-.9.92C12.45 11.9 12 12.5 12 14h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H7c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.04-.42 1.99-1.07 2.75z"/></svg>
-        Guide
+    <div class="flex items-center gap-1.5 flex-wrap justify-end">
+      <span id="timerBadge" class="hidden font-mono-code text-[11px] sm:text-xs bg-slate-800 text-amber-300 border border-slate-700 px-2 py-1 rounded">00:00</span>
+      <button id="guideTopBtn" onclick="openAppOverviewModal()" title="View Rules & App Guide" class="flex items-center gap-1 px-2 sm:px-2.5 py-1 bg-indigo-600/80 hover:bg-indigo-600 text-white font-bold rounded-lg text-[11px] sm:text-xs transition active:scale-95">
+        <svg class="w-3.5 h-3.5 fill-current shrink-0" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 16h-2v-2h2v2zm1.07-7.75l-.9.92C12.45 11.9 12 12.5 12 14h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H7c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.04-.42 1.99-1.07 2.75z"/></svg>
+        <span>Guide</span>
       </button>
-      <button id="claimHostTopBtn" onclick="claimHostRole()" class="hidden text-xs bg-amber-950/80 hover:bg-amber-900 text-amber-300 px-2.5 py-1 rounded border border-amber-700/70 transition">
-        👑 Claim Host
+      <button id="claimHostTopBtn" onclick="claimHostRole()" class="hidden text-[11px] sm:text-xs bg-amber-950/80 hover:bg-amber-900 text-amber-300 px-2 sm:px-2.5 py-1 rounded border border-amber-700/70 transition">
+        👑 Host
       </button>
-      <button id="exitRoomBtn" onclick="resetToHome()" class="hidden text-xs bg-rose-950/70 hover:bg-rose-900 text-rose-300 px-2.5 py-1 rounded border border-rose-800/60 transition">
+      <button id="exitRoomBtn" onclick="resetToHome()" class="hidden text-[11px] sm:text-xs bg-rose-950/70 hover:bg-rose-900 text-rose-300 px-2 sm:px-2.5 py-1 rounded border border-rose-800/60 transition">
         Exit
       </button>
     </div>
@@ -3030,9 +3030,9 @@ function togglePhoneSpeakerMode() {
 }
 
 const PACING_PRESETS = {
-  quick:    { key: "quick",    label: "⚡ Quick (~25m: 8m / 12m / 5m)",      shortLabel: "⚡ Quick (25m)",    act1Min: 8,  act2Min: 12, act3Min: 5,  twistAtSec: 360 },
-  standard: { key: "standard", label: "🕵️ Standard (~45m: 15m / 20m / 10m)", shortLabel: "🕵️ Standard (45m)", act1Min: 15, act2Min: 20, act3Min: 10, twistAtSec: 600 },
-  extended: { key: "extended", label: "🍷 Extended (~60m: 20m / 30m / 10m)", shortLabel: "🍷 Extended (60m)", act1Min: 20, act2Min: 30, act3Min: 10, twistAtSec: 900 }
+  quick:    { key: "quick",    label: "⚡ Quick (~25m)",    shortLabel: "⚡ Quick (~25m)",    act1Min: 8,  act2Min: 12, act3Min: 5,  twistAtSec: 360 },
+  standard: { key: "standard", label: "🕵️ Standard (~45m)", shortLabel: "🕵️ Standard (~45m)", act1Min: 15, act2Min: 20, act3Min: 10, twistAtSec: 600 },
+  extended: { key: "extended", label: "🍷 Extended (~60m)", shortLabel: "🍷 Extended (~60m)", act1Min: 20, act2Min: 30, act3Min: 10, twistAtSec: 900 }
 };
 
 function getPacingConfig(presetKey) {
@@ -4781,10 +4781,10 @@ function renderApp() {
   const hostBtn = document.getElementById("claimHostTopBtn");
   if (hostBtn && appState.viewMode === "player") {
     const amIHost = Boolean(appState.sessionData?.players?.[appState.playerId]?.isHost);
-    hostBtn.textContent = amIHost ? "👑 Host (Active)" : "👑 Claim Host";
+    hostBtn.textContent = amIHost ? "👑 Host ✓" : "👑 Claim Host";
     hostBtn.className = amIHost
-      ? "text-xs bg-emerald-950/90 text-emerald-300 px-2.5 py-1 rounded border border-emerald-700 font-bold transition"
-      : "text-xs bg-amber-950/80 hover:bg-amber-900 text-amber-300 px-2.5 py-1 rounded border border-amber-700/70 transition";
+      ? "text-[11px] sm:text-xs bg-emerald-950/90 text-emerald-300 px-2 sm:px-2.5 py-1 rounded border border-emerald-700 font-bold transition"
+      : "text-[11px] sm:text-xs bg-amber-950/80 hover:bg-amber-900 text-amber-300 px-2 sm:px-2.5 py-1 rounded border border-amber-700/70 transition";
   }
 
   const winScrollY = window.scrollY;
@@ -4845,9 +4845,9 @@ function renderHomeLauncher() {
 
   return `
     <div class="max-w-5xl mx-auto w-full px-4 py-8 flex-1 flex flex-col justify-center">
-      <div class="text-center mb-8">
-        <span class="px-3 py-1 rounded-full text-xs font-mono-code uppercase tracking-widest bg-rose-950/80 text-rose-300 border border-rose-800/60">${totalPacks} Mysteries (${totalEndings} Endings) • Noir Mugshots • Red-String Corkboard • Auto-Ducking Audio</span>
-        <h1 class="text-3xl md:text-5xl font-serif-title font-extrabold text-white mt-3 tracking-tight whitespace-normal break-words">MURDER MYSTERY PARTY ENGINE</h1>
+      <div class="text-center mb-6 sm:mb-8">
+        <span class="inline-block max-w-full whitespace-normal break-words leading-snug px-3 py-1 rounded-2xl text-[11px] sm:text-xs font-mono-code uppercase tracking-wider bg-rose-950/80 text-rose-300 border border-rose-800/60">${totalPacks} Mysteries (${totalEndings} Endings) • Noir Mugshots • Red-String Corkboard • Auto-Ducking Audio</span>
+        <h1 class="text-2xl sm:text-3xl md:text-5xl font-serif-title font-extrabold text-white mt-3 tracking-tight whitespace-normal break-words">MURDER MYSTERY PARTY ENGINE</h1>
         <p class="text-slate-400 text-sm md:text-base mt-2 max-w-2xl mx-auto">
           Snap a live Noir Mugshot on your phone, track alibis on your private Red-String Corkboard, and watch the Smart TV broadcast auto-ducking breaking news twists.
         </p>
@@ -5457,21 +5457,21 @@ function renderMobileCorkboard(s, pack, activeSuspects) {
 
   return `
     <div class="bg-slate-900 border border-amber-700/60 rounded-2xl overflow-hidden shadow-lg">
-      <button type="button" onclick="toggleCorkboardDrawer()" class="w-full px-4 py-3 flex items-center justify-between bg-amber-950/30 hover:bg-amber-950/50 transition">
-        <div class="flex items-center gap-2">
-          <span class="text-sm">📌</span>
-          <span class="text-xs font-mono-code uppercase font-bold text-amber-300">My Red-String Detective Corkboard</span>
+      <button type="button" onclick="toggleCorkboardDrawer()" class="w-full px-3.5 py-3 flex items-center justify-between gap-2 bg-amber-950/30 hover:bg-amber-950/50 transition text-left">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="text-sm shrink-0">📌</span>
+          <span class="text-xs font-mono-code uppercase font-bold text-amber-300 truncate">Red-String Detective Corkboard</span>
         </div>
-        <span class="text-xs font-mono-code text-amber-200">${appState.corkboardOpen ? '▲ Hide' : '▼ Open Scratchpad'}</span>
+        <span class="text-[11px] font-mono-code text-amber-200 shrink-0">${appState.corkboardOpen ? '▲ Hide' : '▼ Open'}</span>
       </button>
 
       ${appState.corkboardOpen ? `
         <div class="p-3.5 space-y-2.5 border-t border-slate-800 bg-slate-950/60">
           ${isKiller ? `
             <div class="p-3 rounded-xl bg-rose-950/30 border border-dashed border-rose-700/70 space-y-2">
-              <div class="flex items-center justify-between">
-                <span class="text-[11px] font-mono-code font-bold text-rose-300 uppercase">🔪 Covert Sabotage (Disguised in Corkboard)</span>
-                <span id="killerSabotageCooldownBadge" class="text-[10px] font-mono-code px-2 py-0.5 rounded ${s.isPaused ? 'bg-amber-950 text-amber-300 border border-amber-700' : (coolSec > 0 ? 'bg-slate-800 text-slate-400 border border-slate-700' : 'bg-emerald-950 text-emerald-300 border border-emerald-700 font-bold')}">
+              <div class="flex flex-wrap items-center justify-between gap-1.5">
+                <span class="text-[11px] font-mono-code font-bold text-rose-300 uppercase">🔪 Covert Killer Sabotage</span>
+                <span id="killerSabotageCooldownBadge" class="shrink-0 text-[10px] font-mono-code px-2 py-0.5 rounded ${s.isPaused ? 'bg-amber-950 text-amber-300 border border-amber-700' : (coolSec > 0 ? 'bg-slate-800 text-slate-400 border border-slate-700' : 'bg-emerald-950 text-emerald-300 border border-emerald-700 font-bold')}">
                   ${s.isPaused ? "⏸ PAUSED" : (coolSec > 0 ? `⏳ COOLDOWN: ${coolSec}s` : "⚡ READY")}
                 </span>
               </div>
@@ -5479,11 +5479,11 @@ function renderMobileCorkboard(s, pack, activeSuspects) {
                 Trigger a 20s TV/Pat-Down Blackout or secretly slip a plausible Red Herring tip into an innocent player's phone (90s cooldown).
               </p>
               <div class="grid grid-cols-2 gap-2">
-                <button type="button" onclick="triggerKillerSabotage('BLACKOUT')" ${coolSec > 0 || s.isPaused ? 'disabled' : ''} class="py-2 px-2.5 rounded-lg text-xs font-bold bg-slate-900 hover:bg-rose-900/80 text-rose-200 border border-rose-800/80 disabled:opacity-40 transition">
-                  ⚡ 20s TV Blackout
+                <button type="button" onclick="triggerKillerSabotage('BLACKOUT')" ${coolSec > 0 || s.isPaused ? 'disabled' : ''} class="py-2 px-2 rounded-lg text-xs font-bold bg-slate-900 hover:bg-rose-900/80 text-rose-200 border border-rose-800/80 disabled:opacity-40 transition">
+                  ⚡ 20s Blackout
                 </button>
-                <button type="button" onclick="triggerKillerSabotage('PLANT_DECOY')" ${coolSec > 0 || s.isPaused ? 'disabled' : ''} class="py-2 px-2.5 rounded-lg text-xs font-bold bg-slate-900 hover:bg-amber-900/80 text-amber-200 border border-amber-800/80 disabled:opacity-40 transition">
-                  🕵️ Plant Red Herring
+                <button type="button" onclick="triggerKillerSabotage('PLANT_DECOY')" ${coolSec > 0 || s.isPaused ? 'disabled' : ''} class="py-2 px-2 rounded-lg text-xs font-bold bg-slate-900 hover:bg-amber-900/80 text-amber-200 border border-amber-800/80 disabled:opacity-40 transition">
+                  🕵️ Red Herring
                 </button>
               </div>
             </div>
@@ -5510,12 +5510,12 @@ function renderMobileCorkboard(s, pack, activeSuspects) {
               const pObj = playersByChar[c.id];
               return `
                 <div class="p-2.5 rounded-xl border ${meta.border} bg-slate-900/90 space-y-2">
-                  <div class="flex items-center justify-between gap-2">
-                    <div class="flex items-center gap-2 min-w-0">
+                  <div class="flex items-start justify-between gap-2">
+                    <div class="flex items-start gap-2 min-w-0 flex-1">
                       ${renderMugshotAvatar(pObj || { id: "npc_" + c.id, name: c.name }, false, "w-8 h-8")}
-                      <div class="min-w-0">
-                        <div class="text-xs font-bold text-white truncate">${escapeHtml(c.name)}</div>
-                        <div class="text-[10px] text-slate-400 truncate">${pObj ? `Played by ${escapeHtml(pObj.name)} (PIN: ${escapeHtml(pObj.pinCode || '--')})` : escapeHtml(c.name)}</div>
+                      <div class="min-w-0 flex-1">
+                        <div class="text-xs font-bold text-white leading-snug break-words">${escapeHtml(c.name)}</div>
+                        <div class="text-[10px] text-slate-400 leading-snug break-words mt-0.5">${pObj ? `Played by ${escapeHtml(pObj.name)} (PIN: ${escapeHtml(pObj.pinCode || '--')})` : escapeHtml(c.name)}</div>
                       </div>
                     </div>
                     <button type="button" onclick="cycleCorkboardStatus('${c.id}')" class="shrink-0 text-[10px] font-mono-code font-bold px-2 py-1 rounded border ${meta.badge}">
@@ -5578,24 +5578,24 @@ function renderMobilePlayerView() {
         </div>
       ` : ""}
 
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-lg">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 sm:p-4 shadow-lg">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <span class="text-xs font-mono-code px-2 py-0.5 rounded border whitespace-normal break-words leading-tight ${pack.badgeColor}">
             ${themeNumber}. ${escapeHtml(pack.title)}
           </span>
-          <div class="flex items-center gap-2 shrink-0">
+          <div class="flex items-center gap-1.5 shrink-0">
             <button type="button" onclick="openMugshotModal()" class="text-[11px] bg-slate-800 hover:bg-slate-700 text-indigo-300 px-2 py-0.5 rounded border border-slate-700">
               📸 Mugshot
             </button>
-            <button type="button" onclick="promptEditPlayerName()" title="Tap to edit your name" class="flex items-center gap-1 text-xs font-mono-code bg-slate-950 hover:bg-slate-800 text-white px-2.5 py-0.5 rounded border border-slate-700 transition">
-              <strong>${escapeHtml(appState.playerName)}</strong>
-              <span class="text-[10px] text-amber-400">✏️</span>
+            <button type="button" onclick="promptEditPlayerName()" title="Tap to edit your name" class="flex items-center gap-1 text-xs font-mono-code bg-slate-950 hover:bg-slate-800 text-white px-2 py-0.5 rounded border border-slate-700 transition max-w-[140px]">
+              <strong class="truncate">${escapeHtml(appState.playerName)}</strong>
+              <span class="text-[10px] text-amber-400 shrink-0">✏️</span>
             </button>
           </div>
         </div>
 
         ${s.round === 0 ? `
-          <div class="mt-4 text-center py-4 space-y-3">
+          <div class="mt-4 text-center py-3 space-y-3">
             <div class="flex justify-center">
               ${renderMugshotAvatar(me || { name: appState.playerName, mugshot: appState.playerMugshot }, false, "w-20 h-20")}
             </div>
@@ -5608,16 +5608,16 @@ function renderMobilePlayerView() {
             <div class="text-left bg-slate-950/90 border border-slate-800 rounded-xl p-3 space-y-2">
               <div class="text-[11px] font-mono-code uppercase text-indigo-300 font-bold">📖 Tonight's Setting</div>
               <p class="text-xs text-slate-300 leading-relaxed">"${escapeHtml(pack.settingIntro)}"</p>
-              <button type="button" onclick="toggleLobbyPreview()" class="w-full py-2 px-3 rounded-lg text-xs font-mono-code font-bold bg-slate-900 hover:bg-slate-800 text-amber-300 border border-slate-800 flex items-center justify-between transition">
-                <span>🎭 Cast & Costume Guide (${pack.characters.length} Roles)</span>
-                <span>${appState.lobbyPreviewOpen ? '▲ Hide' : '▼ Preview'}</span>
+              <button type="button" onclick="toggleLobbyPreview()" class="w-full py-2 px-3 rounded-lg text-xs font-mono-code font-bold bg-slate-900 hover:bg-slate-800 text-amber-300 border border-slate-800 flex items-center justify-between gap-2 transition text-left">
+                <span class="truncate">🎭 Cast & Costume Guide (${pack.characters.length} Roles)</span>
+                <span class="shrink-0">${appState.lobbyPreviewOpen ? '▲ Hide' : '▼ Preview'}</span>
               </button>
               ${appState.lobbyPreviewOpen ? `
                 <div data-scroll-id="lobbyCastPreviewScroll" class="space-y-1.5 max-h-60 overflow-y-auto pt-1 pr-1">
                   ${pack.characters.map(c => `
                     <div class="p-2 rounded-lg bg-slate-900/90 border border-slate-800/80">
-                      <div class="text-xs font-bold text-white">${escapeHtml(c.name)}</div>
-                      <div class="text-[11px] text-amber-300/90 mt-0.5">👗 ${escapeHtml(c.costume || "Dress to impress")}</div>
+                      <div class="text-xs font-bold text-white break-words">${escapeHtml(c.name)}</div>
+                      <div class="text-[11px] text-amber-300/90 mt-0.5 break-words">👗 ${escapeHtml(c.costume || "Dress to impress")}</div>
                     </div>
                   `).join("")}
                 </div>
@@ -5626,12 +5626,12 @@ function renderMobilePlayerView() {
           </div>
         ` : myChar ? `
           <div class="mt-3 pt-3 border-t border-slate-800">
-            <div class="flex items-center justify-between gap-2">
-              <div class="flex items-center gap-2.5">
+            <div class="flex items-start justify-between gap-2">
+              <div class="flex items-start gap-2.5 min-w-0 flex-1">
                 ${renderMugshotAvatar(me, isMeGhost, "w-12 h-12")}
-                <div>
-                  <div class="text-xs font-mono-code uppercase font-bold tracking-wider text-amber-300">Your Secret Character Role</div>
-                  <h2 class="text-base font-bold text-white leading-tight mt-0.5">${escapeHtml(myChar.name)}</h2>
+                <div class="min-w-0 flex-1">
+                  <div class="text-[11px] font-mono-code uppercase font-bold tracking-wider text-amber-300">Your Secret Character Role</div>
+                  <h2 class="text-sm sm:text-base font-bold text-white leading-snug mt-0.5 break-words">${escapeHtml(myChar.name)}</h2>
                 </div>
               </div>
               ${myChar.role !== "victim" ? `
@@ -5641,11 +5641,11 @@ function renderMobilePlayerView() {
               ` : ""}
             </div>
             ${myChar.costume ? `
-              <div class="mt-2.5 px-3 py-1.5 rounded-lg bg-indigo-950/40 border border-indigo-800/60 text-[11px] text-indigo-200">
+              <div class="mt-2.5 px-3 py-1.5 rounded-lg bg-indigo-950/40 border border-indigo-800/60 text-[11px] text-indigo-200 leading-snug break-words">
                 <strong class="text-indigo-300 font-mono-code uppercase">🎭 Costume & Vibe:</strong> ${escapeHtml(myChar.costume)}
               </div>
             ` : ""}
-            <p class="text-xs text-slate-200 mt-2 leading-relaxed bg-slate-950 p-3 rounded-xl border border-slate-800">
+            <p class="text-xs text-slate-200 mt-2 leading-relaxed bg-slate-950 p-3 rounded-xl border border-slate-800 break-words">
               ${escapeHtml(myChar.bio)}
             </p>
           </div>
@@ -5672,19 +5672,19 @@ function renderMobilePlayerView() {
         const bonusClaimed = Boolean(me && me.act1BonusClaimed);
         return `
         <div class="bg-indigo-950/50 border border-indigo-700/80 rounded-2xl p-4 space-y-3 shadow-lg">
-          <div class="flex items-center justify-between">
+          <div class="flex flex-wrap items-center justify-between gap-1">
             <span class="text-xs font-mono-code uppercase font-bold text-indigo-300">Act I Objective (Everyone Alive)</span>
             <span class="text-[11px] text-indigo-200">Mingle & Roleplay</span>
           </div>
-          <p class="text-sm text-white leading-relaxed font-medium">
+          <p class="text-sm text-white leading-relaxed font-medium break-words">
             ${escapeHtml(myChar.act1Prompt)}
           </p>
 
           <div class="bg-slate-950/90 border border-indigo-800/70 rounded-xl p-3 space-y-2">
-            <div class="flex items-center justify-between gap-2">
-              <span class="text-[11px] font-mono-code uppercase font-bold text-amber-300">🥂 Act I Icebreaker Mini-Missions (${doneCount}/3)</span>
-              <span class="text-[10px] font-mono-code px-2 py-0.5 rounded ${bonusClaimed ? 'bg-emerald-950 text-emerald-300 border border-emerald-700 font-bold' : 'bg-slate-900 text-slate-400 border border-slate-800'}">
-                ${bonusClaimed ? '🎁 +1 Pat-Down Token Unlocked!' : 'Reward: +1 Pat-Down Token'}
+            <div class="flex flex-wrap items-center justify-between gap-1.5">
+              <span class="text-[11px] font-mono-code uppercase font-bold text-amber-300">🥂 Icebreaker Missions (${doneCount}/3)</span>
+              <span class="text-[10px] font-mono-code px-2 py-0.5 rounded shrink-0 ${bonusClaimed ? 'bg-emerald-950 text-emerald-300 border border-emerald-700 font-bold' : 'bg-slate-900 text-slate-400 border border-slate-800'}">
+                ${bonusClaimed ? '🎁 +1 Token Unlocked!' : '+1 Pat-Down Token'}
               </span>
             </div>
             <div class="space-y-1.5">
@@ -5734,10 +5734,10 @@ function renderMobilePlayerView() {
                 ${myChar.searchClue ? (() => {
                   const noteSent = cluesList.some(c => c.id === "victim_note_0");
                   return `
-                    <div class="bg-slate-950/90 border border-indigo-700/80 rounded-xl p-3 flex items-center justify-between gap-2">
-                      <div>
+                    <div class="bg-slate-950/90 border border-indigo-700/80 rounded-xl p-3 flex items-start sm:items-center justify-between gap-2.5">
+                      <div class="min-w-0 flex-1">
                         <div class="text-xs font-bold text-indigo-300">📜 Victim's Pocket Note (Lead)</div>
-                        <div class="text-[11px] text-slate-300">${escapeHtml(myChar.searchClue)}</div>
+                        <div class="text-[11px] text-slate-300 leading-snug mt-0.5 break-words">${escapeHtml(myChar.searchClue)}</div>
                       </div>
                       <button onclick="releaseVictimPocketNote()" ${noteSent ? 'disabled' : ''} class="shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold ${noteSent ? 'bg-slate-800 text-slate-500' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}">
                         ${noteSent ? 'Sent ✓' : 'Broadcast'}
@@ -5748,10 +5748,10 @@ function renderMobilePlayerView() {
                 ${pack.forensicAutopsy.map(f => {
                   const alreadySent = cluesList.some(c => c.id === f.id);
                   return `
-                    <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-3 flex items-center justify-between gap-2">
-                      <div>
-                        <div class="text-xs font-bold text-amber-300">${escapeHtml(f.title)}</div>
-                        <div class="text-[11px] text-slate-300">${escapeHtml(f.detail)}</div>
+                    <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-3 flex items-start sm:items-center justify-between gap-2.5">
+                      <div class="min-w-0 flex-1">
+                        <div class="text-xs font-bold text-amber-300 break-words">${escapeHtml(f.title)}</div>
+                        <div class="text-[11px] text-slate-300 leading-snug mt-0.5 break-words">${escapeHtml(f.detail)}</div>
                       </div>
                       <button onclick="releaseForensicClue('${f.id}')" ${alreadySent ? 'disabled' : ''} class="shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold ${alreadySent ? 'bg-slate-800 text-slate-500' : 'bg-emerald-600 hover:bg-emerald-500 text-white'}">
                         ${alreadySent ? 'Sent ✓' : 'Broadcast'}
@@ -5763,10 +5763,10 @@ function renderMobilePlayerView() {
             </div>
 
             <div class="pt-3 border-t border-rose-800/80">
-              <div class="flex items-center justify-between gap-2 mb-1">
-                <div class="text-xs font-mono-code uppercase font-bold text-cyan-300">🔎 STEP 2: HOT SEAT SPOTLIGHT & SUSPECT SEARCH</div>
+              <div class="flex flex-wrap items-center justify-between gap-1.5 mb-1">
+                <div class="text-xs font-mono-code uppercase font-bold text-cyan-300">🔎 STEP 2: HOT SEAT & SUSPECT SEARCH</div>
                 ${isHotSeatActive(s) ? `
-                  <button onclick="clearHotSeat()" class="text-[10px] font-mono-code font-bold px-2 py-0.5 rounded bg-amber-600 text-white">
+                  <button onclick="clearHotSeat()" class="shrink-0 text-[10px] font-mono-code font-bold px-2 py-0.5 rounded bg-amber-600 text-white">
                     ⏹ End Hot Seat (<span id="hotSeatMobileCountdown">${getHotSeatRemainingSec(s)}s</span>)
                   </button>
                 ` : ""}
@@ -5781,24 +5781,24 @@ function renderMobilePlayerView() {
                   const isActivePlayer = activeSuspects.some(as => as.id === c.id);
                   const isThisOnHotSeat = isHotSeatActive(s) && s.hotSeat && s.hotSeat.charId === c.id;
                   return `
-                    <div class="bg-slate-950/90 border ${isThisOnHotSeat ? 'border-amber-400 bg-amber-950/30' : 'border-slate-800'} rounded-xl p-2.5 flex items-center justify-between gap-2">
-                      <div class="min-w-0 flex-1">
-                        <div class="flex items-center gap-1.5 flex-wrap">
-                          <span class="text-xs font-bold text-white">${escapeHtml(c.name)}</span>
-                          <span class="text-[10px] font-mono-code px-1.5 py-0.5 rounded ${isActivePlayer ? 'bg-indigo-950 text-indigo-300' : 'bg-slate-800 text-slate-400'}">
+                    <div class="bg-slate-950/90 border ${isThisOnHotSeat ? 'border-amber-400 bg-amber-950/30' : 'border-slate-800'} rounded-xl p-2.5 space-y-2">
+                      <div class="min-w-0">
+                        <div class="flex items-center justify-between gap-1.5 flex-wrap">
+                          <span class="text-xs font-bold text-white break-words">${escapeHtml(c.name)}</span>
+                          <span class="text-[10px] font-mono-code px-1.5 py-0.5 rounded shrink-0 ${isActivePlayer ? 'bg-indigo-950 text-indigo-300' : 'bg-slate-800 text-slate-400'}">
                             ${isActivePlayer ? 'In Room' : 'Witness File'}
                           </span>
                         </div>
-                        <div class="text-[11px] text-slate-400 mt-0.5">${alreadySearched ? escapeHtml(c.searchClue) : 'Tap 🔦 Hot Seat to interrogate on TV, or 🔎 Search to leak evidence...'}</div>
+                        <div class="text-[11px] text-slate-400 mt-1 leading-snug break-words">${alreadySearched ? escapeHtml(c.searchClue) : 'Tap 🔦 Hot Seat to interrogate on TV, or 🔎 Search to leak evidence...'}</div>
                       </div>
-                      <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 shrink-0">
+                      <div class="grid ${s.round === 2 ? 'grid-cols-2' : 'grid-cols-1'} gap-2">
                         ${s.round === 2 ? `
-                          <button onclick="${isThisOnHotSeat ? 'clearHotSeat()' : `triggerHotSeat('${c.id}')`}" class="px-2.5 py-1.5 rounded-lg text-xs font-bold ${isThisOnHotSeat ? 'bg-amber-500 text-black' : 'bg-amber-950/90 hover:bg-amber-800 text-amber-300 border border-amber-700'}">
-                            ${isThisOnHotSeat ? '⏹ Stop 60s' : '🔦 Hot Seat'}
+                          <button onclick="${isThisOnHotSeat ? 'clearHotSeat()' : `triggerHotSeat('${c.id}')`}" class="py-1.5 px-2 rounded-lg text-xs font-bold ${isThisOnHotSeat ? 'bg-amber-500 text-black' : 'bg-amber-950/90 hover:bg-amber-800 text-amber-300 border border-amber-700'}">
+                            ${isThisOnHotSeat ? '⏹ Stop 60s' : '🔦 Hot Seat (60s)'}
                           </button>
                         ` : ""}
-                        <button onclick="releaseCharacterSearchClue('${c.id}')" ${alreadySearched ? 'disabled' : ''} class="px-2.5 py-1.5 rounded-lg text-xs font-bold ${alreadySearched ? 'bg-slate-800 text-slate-500' : 'bg-cyan-600 hover:bg-cyan-500 text-white'}">
-                          ${alreadySearched ? 'Revealed ✓' : '🔎 Search'}
+                        <button onclick="releaseCharacterSearchClue('${c.id}')" ${alreadySearched ? 'disabled' : ''} class="py-1.5 px-2 rounded-lg text-xs font-bold ${alreadySearched ? 'bg-slate-800 text-slate-500' : 'bg-cyan-600 hover:bg-cyan-500 text-white'}">
+                          ${alreadySearched ? 'Revealed ✓' : '🔎 Leak Search'}
                         </button>
                       </div>
                     </div>
@@ -5809,36 +5809,36 @@ function renderMobilePlayerView() {
           </div>
         ` : `
           <div class="bg-slate-900 border border-slate-700 rounded-2xl p-4 space-y-3 shadow-lg">
-            <div class="flex items-center justify-between">
+            <div class="flex flex-wrap items-center justify-between gap-1">
               <span class="text-xs font-mono-code uppercase font-bold text-amber-400">
                 ${myChar.role === "killer" ? "🔪 Killer Cover Story (Act II)" : "🔍 Suspect Interrogation Script (Act II)"}
               </span>
               ${myChar.role === "killer" && accomplicePlayer ? `<span class="text-[11px] font-mono-code text-purple-300">🤝 Ally: ${escapeHtml(accomplicePlayer.name)}</span>` : ""}
             </div>
-            <p class="text-sm text-white leading-relaxed">
+            <p class="text-sm text-white leading-relaxed break-words">
               ${escapeHtml(myChar.act2Prompt)}
             </p>
             <div class="bg-slate-950 border border-slate-800 rounded-xl p-3">
               <div class="text-xs font-mono-code text-cyan-300 mb-1">Your Official Alibi Statement (Safe to Share):</div>
-              <p class="text-xs text-slate-300 mb-2.5">${escapeHtml(myChar.publicAlibi)}</p>
-              <button onclick="sharePlayerAlibiClue('${appState.playerId}')" ${me.sharedAlibi ? 'disabled' : ''} class="w-full py-2 rounded-lg text-xs font-bold ${me.sharedAlibi ? 'bg-slate-800 text-emerald-400' : 'bg-cyan-600 hover:bg-cyan-500 text-white'}">
-                ${me.sharedAlibi ? '✓ Alibi Statement Logged on TV Board' : '📤 Log My Official Alibi on Public Board'}
+              <p class="text-xs text-slate-300 mb-2.5 break-words">${escapeHtml(myChar.publicAlibi)}</p>
+              <button onclick="sharePlayerAlibiClue('${appState.playerId}')" ${me.sharedAlibi ? 'disabled' : ''} class="w-full py-2 px-2.5 rounded-lg text-xs font-bold ${me.sharedAlibi ? 'bg-slate-800 text-emerald-400' : 'bg-cyan-600 hover:bg-cyan-500 text-white'}">
+                ${me.sharedAlibi ? '✓ Alibi Logged on TV Board' : '📤 Log My Official Alibi on TV Board'}
               </button>
             </div>
           </div>
 
           <div class="bg-indigo-950/40 border border-indigo-700/80 rounded-2xl p-4 space-y-3 shadow-lg">
-            <div class="flex items-center justify-between">
+            <div class="flex flex-wrap items-center justify-between gap-1">
               <span class="text-xs font-mono-code uppercase font-bold text-indigo-300">🕵️ 1-on-1 Suspect Pat-Down</span>
-              <span class="text-xs font-mono-code px-2 py-0.5 rounded bg-indigo-900 text-white">Tokens Left: ${me.patDownTokens ?? 1}</span>
+              <span class="text-xs font-mono-code px-2 py-0.5 rounded bg-indigo-900 text-white shrink-0">Tokens Left: ${me.patDownTokens ?? 1}</span>
             </div>
             <p class="text-xs text-slate-300 leading-relaxed">
               Corner any suspect in person and demand their <strong>2-Digit Pat-Down PIN</strong> to privately inspect their belongings on your phone! (Your PIN is <strong class="text-amber-300">${escapeHtml(me.pinCode || "42")}</strong> if someone pats you down.)
             </p>
             <div class="flex gap-2">
-              <input id="patDownPinInput" type="text" inputmode="numeric" maxlength="4" placeholder="2-Digit PIN" class="w-32 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm font-mono-code text-center text-amber-300 focus:outline-none focus:border-indigo-500" />
-              <button onclick="executePinPatDown()" ${(me.patDownTokens ?? 1) <= 0 || s.isPaused || isSabBlackout ? 'disabled' : ''} class="flex-1 py-2 px-3 rounded-xl font-bold text-xs ${(me.patDownTokens ?? 1) <= 0 || s.isPaused || isSabBlackout ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}">
-                ${s.isPaused ? '⏸ Paused' : (isSabBlackout ? '⚡ Locked (Blackout)' : '🔎 Unlock Private Pat-Down')}
+              <input id="patDownPinInput" type="text" inputmode="numeric" maxlength="4" placeholder="PIN #" class="w-24 sm:w-28 shrink-0 bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-2 text-sm font-mono-code text-center text-amber-300 focus:outline-none focus:border-indigo-500" />
+              <button onclick="executePinPatDown()" ${(me.patDownTokens ?? 1) <= 0 || s.isPaused || isSabBlackout ? 'disabled' : ''} class="flex-1 py-2 px-2.5 rounded-xl font-bold text-xs leading-tight ${(me.patDownTokens ?? 1) <= 0 || s.isPaused || isSabBlackout ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}">
+                ${s.isPaused ? '⏸ Paused' : (isSabBlackout ? '⚡ Locked (Blackout)' : '🔎 Unlock Pat-Down')}
               </button>
             </div>
 
@@ -5882,7 +5882,7 @@ function renderMobilePlayerView() {
       ${s.round === 3 ? `
         ${(!myChar || myChar.role !== "victim") ? `
           <div class="bg-amber-950/40 border-2 border-amber-500/80 rounded-2xl p-4 space-y-3">
-            <div class="flex items-center justify-between">
+            <div class="flex flex-wrap items-center justify-between gap-1">
               <div class="text-xs font-mono-code uppercase font-bold text-amber-300">🗳️ FINAL KILLER ACCUSATION</div>
               <span class="text-[11px] text-amber-200/90">Tap any suspect to vote or change</span>
             </div>
@@ -5894,8 +5894,8 @@ function renderMobilePlayerView() {
                 const isAccomplicePartner = me && me.isAccomplice && c.role === "killer";
                 return `
                   <button type="button" onclick="submitPlayerVote('${appState.playerId}', '${c.id}')" class="w-full text-left p-3 rounded-xl border text-xs font-semibold flex items-center justify-between gap-2 transition ${isSelected ? 'bg-amber-600 text-white border-amber-300 ring-2 ring-amber-400/50 shadow-lg' : 'bg-slate-950 text-slate-200 border-slate-800 hover:border-slate-600'}">
-                    <span class="whitespace-normal break-words">${escapeHtml(c.name)} ${isAccomplicePartner ? '<strong class="text-purple-300 ml-1">(🤝 YOUR PARTNER)</strong>' : ''}</span>
-                    <span class="shrink-0 font-mono-code text-[11px] px-2 py-0.5 rounded ${isSelected ? 'bg-black/30 text-amber-200 font-bold' : 'bg-slate-800 text-slate-300'}">${isSelected ? '✓ SELECTED (Tap to undo)' : 'Vote'}</span>
+                    <span class="whitespace-normal break-words min-w-0 flex-1 leading-snug">${escapeHtml(c.name)} ${isAccomplicePartner ? '<strong class="text-purple-300 ml-1">(🤝 PARTNER)</strong>' : ''}</span>
+                    <span class="shrink-0 font-mono-code text-[11px] px-2 py-0.5 rounded ${isSelected ? 'bg-black/30 text-amber-200 font-bold' : 'bg-slate-800 text-slate-300'}">${isSelected ? '✓ VOTED (Undo)' : 'Vote'}</span>
                   </button>
                 `;
               }).join("")}
@@ -5909,8 +5909,8 @@ function renderMobilePlayerView() {
 
         ${allPlayersList.length > 0 ? `
           <div class="bg-slate-900 border border-fuchsia-700/60 rounded-2xl p-4 space-y-3 shadow-lg">
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-mono-code uppercase font-bold text-fuchsia-300">🏆 Party Superlative Awards (Bonus Vote)</span>
+            <div class="flex flex-wrap items-center justify-between gap-1">
+              <span class="text-xs font-mono-code uppercase font-bold text-fuchsia-300">🏆 Party Superlative Awards</span>
               <span class="text-[10px] text-slate-400">Crowned on TV in Act IV</span>
             </div>
             <div class="space-y-2.5">
@@ -5956,24 +5956,24 @@ function renderMobilePlayerView() {
       ` : ""}
 
       ${isHost ? `
-        <div class="bg-slate-900/90 border border-indigo-800/70 rounded-2xl p-4 space-y-3">
-          <div class="flex items-center justify-between">
+        <div class="bg-slate-900/90 border border-indigo-800/70 rounded-2xl p-3.5 sm:p-4 space-y-3">
+          <div class="flex items-center justify-between gap-2">
             <span class="text-xs font-mono-code uppercase font-bold text-indigo-300">👑 Spoiler-Free Host Controls</span>
-            <span class="text-[11px] text-slate-400">Round ${s.round}/4</span>
+            <span class="text-[11px] text-slate-400 shrink-0">Round ${s.round}/4</span>
           </div>
 
-          <button type="button" onclick="togglePhoneSpeakerMode()" class="w-full py-2 px-3 rounded-xl text-xs font-mono-code font-bold border flex items-center justify-between transition ${appState.phoneSpeakerEnabled ? 'bg-emerald-950/80 border-emerald-500 text-emerald-300' : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'}">
-            <span>🔊 Use My Phone as TV Speaker</span>
-            <span class="px-2 py-0.5 rounded text-[10px] ${appState.phoneSpeakerEnabled ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'}">${appState.phoneSpeakerEnabled ? 'ON (Bluetooth Ready)' : 'OFF'}</span>
+          <button type="button" onclick="togglePhoneSpeakerMode()" class="w-full py-2 px-3 rounded-xl text-xs font-mono-code font-bold border flex items-center justify-between gap-2 text-left transition ${appState.phoneSpeakerEnabled ? 'bg-emerald-950/80 border-emerald-500 text-emerald-300' : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'}">
+            <span class="min-w-0 truncate">🔊 Use My Phone as TV Speaker</span>
+            <span class="shrink-0 px-2 py-0.5 rounded text-[10px] ${appState.phoneSpeakerEnabled ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'}">${appState.phoneSpeakerEnabled ? 'ON' : 'OFF'}</span>
           </button>
 
           ${s.round >= 1 && s.round <= 3 ? `
             <div class="flex gap-2 pb-2 border-b border-slate-800">
-              <button onclick="toggleTimerPause()" class="flex-1 py-2 rounded-xl text-xs font-bold ${s.isPaused ? 'bg-emerald-700 text-white' : 'bg-slate-800 text-slate-200 border border-slate-700'}">
+              <button onclick="toggleTimerPause()" class="flex-1 py-2 px-2 rounded-xl text-xs font-bold ${s.isPaused ? 'bg-emerald-700 text-white' : 'bg-slate-800 text-slate-200 border border-slate-700'}">
                 ${s.isPaused ? '▶ Resume Game' : '⏸ Intermission Pause'}
               </button>
-              <button onclick="addFiveMinutesToTimer()" class="py-2 px-3 rounded-xl text-xs font-bold bg-slate-800 text-amber-300 border border-slate-700">
-                ⏱ +5 Minutes
+              <button onclick="addFiveMinutesToTimer()" class="py-2 px-2.5 rounded-xl text-xs font-bold bg-slate-800 text-amber-300 border border-slate-700 shrink-0">
+                ⏱ +5m
               </button>
             </div>
           ` : ""}
@@ -5985,61 +5985,61 @@ function renderMobilePlayerView() {
                 ${packList.map((m, idx) => `<option value="${m.id}" ${m.id === s.mysteryId ? 'selected' : ''}>${idx + 1}. ${escapeHtml(m.title)}</option>`).join("")}
               </select>
               <div class="grid grid-cols-1 gap-2">
-                <label class="flex items-center justify-between bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200">
-                  <span>⏱ Game Length Preset</span>
-                  <select onchange="changePacingPreset(this.value)" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-cyan-300">
+                <label class="flex items-center justify-between gap-2 bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200">
+                  <span class="shrink-0">⏱ Game Length</span>
+                  <select onchange="changePacingPreset(this.value)" class="min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-cyan-300">
                     ${Object.values(PACING_PRESETS).map(p => `<option value="${p.key}" ${p.key === (s.pacingPreset || 'standard') ? 'selected' : ''}>${escapeHtml(p.label)}</option>`).join("")}
                   </select>
                 </label>
-                <label class="flex items-center justify-between bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200">
-                  <span>🎲 Ending Variant Selection</span>
-                  <select onchange="setPreferredVariant(this.value)" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-amber-300">
+                <label class="flex items-center justify-between gap-2 bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200">
+                  <span class="shrink-0">🎲 Ending Variant</span>
+                  <select onchange="setPreferredVariant(this.value)" class="min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-amber-300">
                     <option value="auto" ${appState.preferredVariant === 'auto' ? 'selected' : ''}>Auto (Unplayed First)</option>
-                    <option value="0" ${appState.preferredVariant === '0' ? 'selected' : ''}>Ending Variant A</option>
-                    <option value="1" ${appState.preferredVariant === '1' ? 'selected' : ''}>Ending Variant B</option>
-                    <option value="2" ${appState.preferredVariant === '2' ? 'selected' : ''}>Ending Variant C</option>
+                    <option value="0" ${appState.preferredVariant === '0' ? 'selected' : ''}>Variant A</option>
+                    <option value="1" ${appState.preferredVariant === '1' ? 'selected' : ''}>Variant B</option>
+                    <option value="2" ${appState.preferredVariant === '2' ? 'selected' : ''}>Variant C</option>
                   </select>
                 </label>
-                <label class="flex items-center justify-between bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 cursor-pointer">
-                  <span>🤝 Enable Secret Accomplice Role</span>
-                  <input type="checkbox" ${s.accompliceEnabled ? 'checked' : ''} onchange="toggleAccompliceOption(this.checked)" class="w-4 h-4 accent-indigo-500 rounded" />
+                <label class="flex items-center justify-between gap-2 bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 cursor-pointer">
+                  <span class="min-w-0 leading-snug">🤝 Enable Secret Accomplice Role</span>
+                  <input type="checkbox" ${s.accompliceEnabled ? 'checked' : ''} onchange="toggleAccompliceOption(this.checked)" class="w-4 h-4 accent-indigo-500 rounded shrink-0" />
                 </label>
               </div>
               <div class="flex gap-2 pt-1">
-                <button onclick="addDemoPlayersToFillSix()" class="flex-1 py-2.5 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700">
+                <button onclick="addDemoPlayersToFillSix()" class="flex-1 py-2.5 px-2 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700 leading-tight">
                   + Fill 6 Demo Bots
                 </button>
-                <button onclick="assignCharactersAndStartAct1()" class="flex-1 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 text-white">
+                <button onclick="assignCharactersAndStartAct1()" class="flex-1 py-2.5 px-2 rounded-xl text-xs font-bold bg-emerald-600 text-white leading-tight">
                   🎲 Roll Killer & Start
                 </button>
               </div>
             </div>
           ` : s.round === 1 ? `
-            <button onclick="triggerBlackoutMurder()" class="w-full py-2.5 rounded-xl text-xs font-bold bg-rose-600 text-white">
-              ⚡ Force Blackout Murder (Advance to Act II)
+            <button onclick="triggerBlackoutMurder()" class="w-full py-2.5 px-3 rounded-xl text-xs font-bold bg-rose-600 text-white leading-snug">
+              ⚡ Force Blackout Murder (Start Act II)
             </button>
           ` : s.round === 2 ? `
             <div class="space-y-2">
               ${!s.midTwistTriggered ? `
-                <button onclick="triggerMidRoundTwist()" class="w-full py-2.5 rounded-xl text-xs font-bold bg-fuchsia-700 text-white">
+                <button onclick="triggerMidRoundTwist()" class="w-full py-2.5 px-3 rounded-xl text-xs font-bold bg-fuchsia-700 text-white leading-snug">
                   🚨 Fire Breaking News Plot Twist Now
                 </button>
               ` : ""}
-              <button onclick="advanceToAct3Voting()" class="w-full py-2.5 rounded-xl text-xs font-bold bg-amber-600 text-white">
-                🗳️ Declassify All Evidence & Open Voting (Act III)
+              <button onclick="advanceToAct3Voting()" class="w-full py-2.5 px-3 rounded-xl text-xs font-bold bg-amber-600 text-white leading-snug">
+                🗳️ Declassify Evidence & Open Voting (Act III)
               </button>
             </div>
           ` : s.round === 3 ? `
-            <button onclick="revealFinalSolution()" class="w-full py-2.5 rounded-xl text-xs font-bold bg-emerald-600 text-white">
+            <button onclick="revealFinalSolution()" class="w-full py-2.5 px-3 rounded-xl text-xs font-bold bg-emerald-600 text-white leading-snug">
               🎭 Reveal Final Solution (Act IV)
             </button>
           ` : `
             <div class="space-y-2">
-              <button onclick="resetRoomForNextGame()" class="w-full py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow">
-                🔄 Next Mystery in Same Room (Keep TV & Players!)
+              <button onclick="resetRoomForNextGame()" class="w-full py-2.5 px-3 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow leading-snug">
+                🔄 Next Mystery in Same Room (Keep TV & Players)
               </button>
-              <button onclick="resetRoomForNextGame('${escapeHtml(s.mysteryId)}')" class="w-full py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">
-                🎲 Replay This Mystery (Rolls Unplayed Ending!)
+              <button onclick="resetRoomForNextGame('${escapeHtml(s.mysteryId)}')" class="w-full py-2 px-3 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 leading-snug">
+                🎲 Replay This Mystery (Rolls Unplayed Ending)
               </button>
             </div>
           `}
@@ -6062,19 +6062,19 @@ const guideSteps = [
     desc: "Open this page on a Smart TV or laptop to launch the TV Display, or start a room directly from your phone. Players scan the TV QR code (or enter the 4-letter Room Code) to join and snap a Noir Mugshot.",
     mockup: `
       <div class="space-y-2.5">
-        <div class="flex items-center justify-between bg-slate-950 px-3 py-2 rounded-xl border border-indigo-500/60 text-xs">
+        <div class="flex flex-wrap items-center justify-between gap-1.5 bg-slate-950 px-3 py-2 rounded-xl border border-indigo-500/60 text-xs">
           <div class="flex items-center gap-2">
             <span class="text-slate-400 font-mono-code uppercase">Room Code:</span>
             <span class="font-mono-code text-base font-extrabold text-indigo-400 tracking-widest">NOIR</span>
           </div>
-          <span class="px-2.5 py-1 rounded-lg bg-indigo-600 text-white font-bold text-xs">📱 Scan TV QR to Join</span>
+          <span class="px-2.5 py-1 rounded-lg bg-indigo-600 text-white font-bold text-xs">📱 Scan TV QR</span>
         </div>
         <div class="guide-highlight bg-slate-800/95 p-3 rounded-xl border border-amber-500/80 space-y-2 shadow-lg">
-          <div class="flex items-center justify-between text-xs">
+          <div class="flex flex-wrap items-center justify-between gap-1 text-xs">
             <span class="font-mono-code font-bold text-indigo-300 uppercase">👑 Spoiler-Free Host Lobby</span>
             <span class="text-[11px] font-mono-code text-emerald-300">8 Packs • 24 Endings</span>
           </div>
-          <div class="grid grid-cols-2 gap-1.5 text-[11px]">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[11px]">
             <div class="bg-slate-950 border border-slate-700 rounded-lg p-2 text-cyan-300 font-semibold">
               ⏱ Preset: 🕵️ Standard (~45m)
             </div>
@@ -6082,7 +6082,7 @@ const guideSteps = [
               🎲 Ending: Auto (Unplayed First)
             </div>
           </div>
-          <div class="flex items-center justify-between pt-1">
+          <div class="flex flex-wrap items-center justify-between gap-1.5 pt-1">
             <span class="text-[11px] text-slate-300">🎭 Cast & Costume Guide Preview</span>
             <span class="px-3 py-1 bg-emerald-600 text-white font-bold text-xs rounded-lg">🎲 Roll Killer & Start</span>
           </div>
@@ -6101,10 +6101,10 @@ const guideSteps = [
     mockup: `
       <div class="space-y-2.5">
         <div class="guide-highlight bg-slate-900 p-3 rounded-xl border border-amber-500/80 space-y-2">
-          <div class="flex items-center justify-between">
-            <span class="text-[11px] font-mono-code uppercase font-bold text-amber-300">🥂 Act I Icebreaker Mini-Missions (3/3)</span>
+          <div class="flex flex-wrap items-center justify-between gap-1">
+            <span class="text-[11px] font-mono-code uppercase font-bold text-amber-300">🥂 Icebreaker Missions (3/3)</span>
             <span class="text-[10px] font-mono-code px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-700 font-bold">
-              🎁 +1 Pat-Down Token Unlocked!
+              🎁 +1 Token Unlocked!
             </span>
           </div>
           <div class="space-y-1 text-xs">
