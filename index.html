@@ -3362,6 +3362,9 @@ function handleIncomingSessionUpdate(newSession) {
   if (!newSession.awardVotes) newSession.awardVotes = {};
   if (typeof newSession.variantIndex !== "number") newSession.variantIndex = 0;
   if (!newSession.midTwistTriggered) midTwistLatch = false;
+  if (newSession.round === 0) {
+    try { localStorage.removeItem(getCorkboardKey()); } catch (e) {}
+  }
 
   appState.sessionData = newSession;
   const pack = getEffectivePack(newSession.mysteryId, newSession.variantIndex);
@@ -4050,13 +4053,13 @@ function executePinPatDown() {
 
   if (inputEl) inputEl.value = "";
   HapticsEngine.trigger("PATDOWN_UNLOCKED");
-  const newTokens = Math.max(0, (me.patDownTokens || 1) - 1);
+  const newTokens = Math.max(0, (me.patDownTokens ?? 1) - 1);
   if (firebaseDb && appState.roomCode) {
-    firebaseDb.ref(`mystery_rooms/${appState.roomCode}/players/${appState.playerId}`).update({
-      patDownTokens: newTokens,
-      [`unlockedPrivateClues/${targetChar.id}`]: targetChar.id
+    firebaseDb.ref(`mystery_rooms/${appState.roomCode}`).update({
+      [`players/${appState.playerId}/patDownTokens`]: newTokens,
+      [`players/${appState.playerId}/unlockedPrivateClues/${targetChar.id}`]: targetChar.id,
+      updatedAt: Date.now()
     });
-    firebaseDb.ref(`mystery_rooms/${appState.roomCode}/updatedAt`).set(Date.now());
   } else {
     const copy = JSON.parse(JSON.stringify(s));
     copy.players[appState.playerId].patDownTokens = newTokens;
