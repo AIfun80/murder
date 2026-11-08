@@ -2679,6 +2679,7 @@ const HapticsEngine = {
 /* ============================================================================
    4. REAL-TIME SYNC ENGINE, MUGSHOT STUDIO & PRIVATE CORKBOARD STORAGE
    ============================================================================ */
+let isExplicitExit = false;
 let appState = {
   viewMode: "home",
   roomCode: "",
@@ -3371,13 +3372,13 @@ function handleIncomingSessionUpdate(newSession) {
     try { localStorage.removeItem(getCorkboardKey()); } catch (e) {}
   }
 
-  // If this player was active in the lobby (round 0) and was removed (e.g. kicked or cleared)
-  if (appState.viewMode === "player" && appState.playerId && appState.sessionData && appState.sessionData.round === 0) {
-    const wasInLobby = appState.sessionData.players && appState.sessionData.players[appState.playerId];
-    const isStillInLobby = newSession.players && newSession.players[appState.playerId];
+  // If this player was active in the lobby (round 0) and was removed by the Host (not an intentional exit)
+  if (!isExplicitExit && appState.viewMode === "player" && appState.playerId && appState.sessionData && appState.sessionData.round === 0) {
+    const wasInLobby = Boolean(appState.sessionData.players && appState.sessionData.players[appState.playerId]);
+    const isStillInLobby = Boolean(newSession.players && newSession.players[appState.playerId]);
     if (wasInLobby && !isStillInLobby) {
-      alert("You have left or were removed from the room lobby.");
       resetToHome();
+      alert("You were removed from the lobby by the Host.");
       return;
     }
   }
@@ -4850,6 +4851,7 @@ function updateModeBadge() {
 }
 
 function resetToHome() {
+  isExplicitExit = true;
   soundFX.stopAll();
   const currentCode = appState.roomCode;
   const currentPid = appState.playerId;
@@ -4857,21 +4859,16 @@ function resetToHome() {
   const isLobby = s && s.round === 0;
   const wasPlayer = appState.viewMode === "player";
 
-  // 1. Remove player immediately while currentCode and session snapshot are active
-  if (wasPlayer && currentCode && currentPid && isLobby) {
-    removePlayerFromLobby(currentCode, currentPid, s);
+  // 1. Detach listener and clear local state immediately so no incoming Firebase updates trigger alerts
+  if (roomRef) {
+    roomRef.off();
+    roomRef = null;
   }
-
-  // 2. Detach listener and clear local state
   appState.viewMode = "home";
   appState.roomCode = "";
   appState.sessionData = null;
   appState.qrScannedRoom = false;
 
-  if (roomRef) {
-    roomRef.off();
-    roomRef = null;
-  }
   try {
     const url = new URL(window.location.href);
     url.searchParams.delete("room");
@@ -4879,9 +4876,15 @@ function resetToHome() {
     window.history.replaceState({}, "", url.toString());
   } catch (e) {}
 
+  // 2. Remove player from lobby in Firebase
+  if (wasPlayer && currentCode && currentPid && isLobby) {
+    removePlayerFromLobby(currentCode, currentPid, s);
+  }
+
   document.getElementById("timerBadge").classList.add("hidden");
   updateModeBadge();
   renderApp();
+  isExplicitExit = false;
 }
 
 function renderApp() {
