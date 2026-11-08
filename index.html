@@ -255,11 +255,6 @@ document.addEventListener("visibilitychange", () => {
     requestScreenWakeLock();
   }
 });
-window.addEventListener("pagehide", () => {
-  if (appState.viewMode === "player" && appState.roomCode && appState.playerId && appState.sessionData && appState.sessionData.round === 0) {
-    removePlayerFromLobby(appState.roomCode, appState.playerId, appState.sessionData);
-  }
-});
 
 /* ============================================================================
    2. ALL 7 MYSTERY CARTRIDGES (21 ENDINGS) + 3 KILLER VARIANTS + TIMED MID-ACT TWISTS
@@ -3516,6 +3511,10 @@ function createNewRoom(mysteryId, openAsMode) {
   };
 
   appState.viewMode = openAsMode;
+  try {
+    localStorage.setItem("mm_active_room", code);
+    localStorage.setItem("mm_active_mode", openAsMode);
+  } catch (e) {}
   updateModeBadge();
   subscribeToRoom(code, () => {
     writeRoomState(initialSession);
@@ -3537,6 +3536,10 @@ function joinExistingRoom(code, playerName, asMode) {
 
   requestScreenWakeLock();
   appState.viewMode = asMode;
+  try {
+    localStorage.setItem("mm_active_room", cleanCode);
+    localStorage.setItem("mm_active_mode", asMode);
+  } catch (e) {}
   updateModeBadge();
 
   subscribeToRoom(cleanCode, (existingVal) => {
@@ -4868,6 +4871,10 @@ function resetToHome() {
   appState.roomCode = "";
   appState.sessionData = null;
   appState.qrScannedRoom = false;
+  try {
+    localStorage.removeItem("mm_active_room");
+    localStorage.removeItem("mm_active_mode");
+  } catch (e) {}
 
   try {
     const url = new URL(window.location.href);
@@ -6431,9 +6438,22 @@ window.addEventListener("DOMContentLoaded", () => {
   const params = new URLSearchParams(window.location.search);
   const roomFromQR = params.get("room");
   const isTvReconnect = params.get("tv") === "1";
+  const savedActiveRoom = localStorage.getItem("mm_active_room");
+  const savedActiveMode = localStorage.getItem("mm_active_mode");
+
   if (roomFromQR && isTvReconnect) {
     joinExistingRoom(roomFromQR.toUpperCase(), "", "tv");
     return;
+  }
+  // If user refreshed their phone browser while active in a room, resume active session directly
+  if (roomFromQR && savedActiveRoom && roomFromQR.toUpperCase() === savedActiveRoom.toUpperCase()) {
+    if (savedActiveMode === "player" && appState.playerName) {
+      joinExistingRoom(roomFromQR.toUpperCase(), appState.playerName, "player");
+      return;
+    } else if (savedActiveMode === "tv") {
+      joinExistingRoom(roomFromQR.toUpperCase(), "", "tv");
+      return;
+    }
   }
   if (roomFromQR) {
     appState.roomCode = roomFromQR.toUpperCase();
