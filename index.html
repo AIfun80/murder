@@ -2626,6 +2626,7 @@ let appState = {
   corkboardOpen: false,
   lobbyPreviewOpen: false,
   tvControlsOpen: false,
+  phoneSpeakerEnabled: false,
   preferredVariant: "auto",
   sessionData: null,
   lastPlayedEventId: null,
@@ -2893,7 +2894,35 @@ function cycleCorkboardStatus(charId) {
   if (!data[charId]) data[charId] = { status: next, note: "" };
   else data[charId].status = next;
   try { localStorage.setItem(getCorkboardKey(), JSON.stringify(data)); } catch (e) {}
-  renderApp();
+
+  const primeTargets = Object.keys(data).filter(k => data[k] && data[k].status === "prime");
+  const s = appState.sessionData;
+  if (s && s.players && s.players[appState.playerId]) {
+    if (firebaseDb && appState.roomCode) {
+      firebaseDb.ref(`mystery_rooms/${appState.roomCode}/players/${appState.playerId}/primeTargets`).set(primeTargets.length > 0 ? primeTargets : null);
+      firebaseDb.ref(`mystery_rooms/${appState.roomCode}/updatedAt`).set(Date.now());
+    } else {
+      const copy = JSON.parse(JSON.stringify(s));
+      copy.players[appState.playerId].primeTargets = primeTargets;
+      writeRoomState(copy);
+    }
+  } else {
+    renderApp();
+  }
+}
+
+function computeHighSuspicionSuspectCount(s) {
+  if (!s || !s.players) return 0;
+  const counts = {};
+  Object.values(s.players).forEach(p => {
+    if (!p || !p.primeTargets) return;
+    const targets = Array.isArray(p.primeTargets) ? p.primeTargets : Object.values(p.primeTargets);
+    const uniqueTargets = new Set(targets.filter(Boolean));
+    uniqueTargets.forEach(cid => {
+      counts[cid] = (counts[cid] || 0) + 1;
+    });
+  });
+  return Object.values(counts).filter(cnt => cnt >= 3).length;
 }
 
 function saveCorkboardNote(charId, noteText) {
@@ -2916,6 +2945,171 @@ function toggleLobbyPreview() {
 function toggleTvControls() {
   appState.tvControlsOpen = !appState.tvControlsOpen;
   renderApp();
+}
+
+function isAudioOutputActive() {
+  return appState.viewMode === "tv" || Boolean(appState.phoneSpeakerEnabled);
+}
+
+function togglePhoneSpeakerMode() {
+  appState.phoneSpeakerEnabled = !appState.phoneSpeakerEnabled;
+  const s = appState.sessionData;
+  if (appState.phoneSpeakerEnabled) {
+    soundFX.unlock();
+    if (s && s.round >= 1 && s.round <= 3 && soundFX.ambientEnabled) {
+      const pack = getEffectivePack(s.mysteryId, s.variantIndex);
+      soundFX.startAmbient((pack && pack.ambientProfile) || "space");
+    }
+    soundFX.playChime();
+    soundFX.speakBulletin("Host phone speaker mode enabled. Game audio and detective bulletins will play through this phone.");
+  } else {
+    if (appState.viewMode !== "tv") {
+      soundFX.stopAmbient();
+      soundFX.stopEscalation();
+    }
+  }
+  renderApp();
+}
+
+const PACING_PRESETS = {
+  quick:    { key: "quick",    label: "⚡ Quick (~25m: 8m / 12m / 5m)",      shortLabel: "⚡ Quick (25m)",    act1Min: 8,  act2Min: 12, act3Min: 5,  twistAtSec: 360 },
+  standard: { key: "standard", label: "🕵️ Standard (~45m: 15m / 20m / 10m)", shortLabel: "🕵️ Standard (45m)", act1Min: 15, act2Min: 20, act3Min: 10, twistAtSec: 600 },
+  extended: { key: "extended", label: "🍷 Extended (~60m: 20m / 30m / 10m)", shortLabel: "🍷 Extended (60m)", act1Min: 20, act2Min: 30, act3Min: 10, twistAtSec: 900 }
+};
+
+function getPacingConfig(presetKey) {
+  return PACING_PRESETS[presetKey] || PACING_PRESETS.standard;
+}
+
+function changePacingPreset(presetKey) {
+  if (!appState.sessionData) return;
+  const validKey = PACING_PRESETS[presetKey] ? presetKey : "standard";
+  if (firebaseDb && appState.roomCode) {
+    firebaseDb.ref(`mystery_rooms/${appState.roomCode}`).update({
+      pacingPreset: validKey,
+      updatedAt: Date.now()
+    });
+  } else {
+    const s = JSON.parse(JSON.stringify(appState.sessionData));
+    s.pacingPreset = validKey;
+    writeRoomState(s);
+  }
+}
+
+function getAct1Missions(pack) {
+  const victimChar = (pack && pack.characters && pack.characters[0]) ? pack.characters[0] : null;
+  const victimShort = victimChar ? victimChar.name.split("(")[0].trim() : "the Guest of Honor";
+  return [
+    `🥂 Greet or clink glasses with the Guest of Honor (${victimShort})`,
+    `🕵️ Ask 2 other suspects where they were right before the party started`,
+    `🎭 Introduce yourself in-character & show off your costume or prop vibe`
+  ];
+}
+
+function toggleAct1Mission(missionIdx) {
+  const s = appState.sessionData;
+  if (!s || s.round !== 1 || !s.players || !s.players[appState.playerId]) return;
+  const me = s.players[appState.playerId];
+  const currentMissions = Object.assign({}, me.act1Missions || {});
+  currentMissions[missionIdx] = !currentMissions[missionIdx];
+
+  const allThreeDone = Boolean(currentMissions[0] && currentMissions[1] && currentMissions[2]);
+  const awardBonusNow = allThreeDone && !me.act1BonusClaimed;
+  const nextTokens = awardBonusNow ? ((me.patDownTokens ?? 1) + 1) : (me.patDownTokens ?? 1);
+  const nextClaimed = Boolean(me.act1BonusClaimed || awardBonusNow);
+
+  if (awardBonusNow) {
+    HapticsEngine.trigger("PATDOWN_UNLOCKED");
+  } else {
+    HapticsEngine.trigger("VOTE_LOCKED");
+  }
+
+  if (firebaseDb && appState.roomCode) {
+    firebaseDb.ref(`mystery_rooms/${appState.roomCode}`).update({
+      [`players/${appState.playerId}/act1Missions`]: currentMissions,
+      [`players/${appState.playerId}/act1BonusClaimed`]: nextClaimed,
+      [`players/${appState.playerId}/patDownTokens`]: nextTokens,
+      updatedAt: Date.now()
+    });
+  } else {
+    const copy = JSON.parse(JSON.stringify(s));
+    copy.players[appState.playerId].act1Missions = currentMissions;
+    copy.players[appState.playerId].act1BonusClaimed = nextClaimed;
+    copy.players[appState.playerId].patDownTokens = nextTokens;
+    writeRoomState(copy);
+  }
+}
+
+function isHotSeatActive(session) {
+  if (!session || !session.hotSeat || !session.hotSeat.charId) return false;
+  if (session.isPaused) return (session.pausedHotSeatRemMs || 0) > 0;
+  return Boolean(session.hotSeat.endsAt && Date.now() < session.hotSeat.endsAt);
+}
+
+function getHotSeatRemainingSec(session) {
+  if (!session || !session.hotSeat || !session.hotSeat.charId) return 0;
+  if (session.isPaused) return Math.max(0, Math.ceil((session.pausedHotSeatRemMs || 0) / 1000));
+  if (!session.hotSeat.endsAt) return 0;
+  return Math.max(0, Math.ceil((session.hotSeat.endsAt - Date.now()) / 1000));
+}
+
+function triggerHotSeat(charId) {
+  const s = appState.sessionData;
+  if (!s || s.round !== 2) return;
+  if (s.isPaused) {
+    HapticsEngine.trigger("ERROR");
+    return alert("Game is paused for Intermission!");
+  }
+  const pack = getEffectivePack(s.mysteryId, s.variantIndex);
+  const charObj = pack.characters.find(c => c.id === charId);
+  if (!charObj) return;
+
+  const shortName = charObj.name.split("(")[0].trim();
+  const now = Date.now();
+  const hotSeatObj = {
+    charId: charObj.id,
+    endsAt: now + 60 * 1000,
+    startedAt: now
+  };
+  const evObj = {
+    id: "ev_hotseat_" + now,
+    type: "clue",
+    text: `🔦 60s HOT SEAT SPOTLIGHT: The Ghost Investigator has put ${shortName} in the Hot Seat!`,
+    speechText: `Hot Seat interrogation! The Ghost Investigator has placed ${shortName} under the sixty second spotlight. Question their alibi now!`
+  };
+
+  if (firebaseDb && appState.roomCode) {
+    firebaseDb.ref(`mystery_rooms/${appState.roomCode}`).update({
+      hotSeat: hotSeatObj,
+      pausedHotSeatRemMs: null,
+      latestEvent: evObj,
+      updatedAt: now
+    });
+  } else {
+    const copy = JSON.parse(JSON.stringify(s));
+    copy.hotSeat = hotSeatObj;
+    copy.pausedHotSeatRemMs = null;
+    copy.latestEvent = evObj;
+    writeRoomState(copy);
+  }
+}
+
+function clearHotSeat() {
+  const s = appState.sessionData;
+  if (!s) return;
+  const now = Date.now();
+  if (firebaseDb && appState.roomCode) {
+    firebaseDb.ref(`mystery_rooms/${appState.roomCode}`).update({
+      hotSeat: null,
+      pausedHotSeatRemMs: null,
+      updatedAt: now
+    });
+  } else {
+    const copy = JSON.parse(JSON.stringify(s));
+    copy.hotSeat = null;
+    copy.pausedHotSeatRemMs = null;
+    writeRoomState(copy);
+  }
 }
 
 function setPreferredVariant(val) {
@@ -3114,7 +3308,7 @@ function handleIncomingSessionUpdate(newSession) {
   appState.sessionData = newSession;
   const pack = getEffectivePack(newSession.mysteryId, newSession.variantIndex);
 
-  if (appState.viewMode === "tv") {
+  if (isAudioOutputActive()) {
     if (newSession.round >= 1 && newSession.round <= 3 && soundFX.ambientEnabled) {
       soundFX.startAmbient(pack.ambientProfile || "space");
     } else if (newSession.round === 0 || newSession.round === 4) {
@@ -3142,13 +3336,13 @@ function handleIncomingSessionUpdate(newSession) {
     appState.lastPlayedEventId = newSession.latestEvent.id;
     const ev = newSession.latestEvent;
 
-    if (appState.viewMode === "tv") {
+    if (isAudioOutputActive()) {
       if (ev.type === "blackout" || ev.type === "sabotage_blackout") {
         soundFX.playBlackoutFX(pack ? pack.soundProfile : "siren");
         if (soundFX.pendingBulletinTimeout) clearTimeout(soundFX.pendingBulletinTimeout);
         soundFX.pendingBulletinTimeout = setTimeout(() => {
           soundFX.pendingBulletinTimeout = null;
-          if (appState.viewMode === "tv") {
+          if (isAudioOutputActive()) {
             soundFX.speakBulletin(ev.speechText || ev.text, ev.mp3File);
           }
         }, 1600);
@@ -3159,7 +3353,8 @@ function handleIncomingSessionUpdate(newSession) {
         soundFX.playDrumrollAndReveal();
         if (ev.speechText || ev.mp3File) soundFX.speakBulletin(ev.speechText || ev.text, ev.mp3File);
       }
-    } else if (appState.viewMode === "player") {
+    }
+    if (appState.viewMode === "player") {
       if (ev.type === "blackout" || ev.type === "sabotage_blackout") {
         HapticsEngine.trigger("SABOTAGE_BLACKOUT");
       } else if (ev.type === "twist") {
@@ -3195,6 +3390,7 @@ function createNewRoom(mysteryId, openAsMode) {
     updatedAt: now,
     mysteryId: mysteryId,
     variantIndex: 0,
+    pacingPreset: "standard",
     accompliceEnabled: false,
     accomplicePlayerId: null,
     midTwistTriggered: false,
@@ -3202,6 +3398,7 @@ function createNewRoom(mysteryId, openAsMode) {
     phaseEndsAt: null,
     isPaused: false,
     pausedRemainingMs: null,
+    hotSeat: null,
     players: {},
     publicClues: {},
     votes: {},
@@ -3246,6 +3443,7 @@ function joinExistingRoom(code, playerName, asMode) {
         updatedAt: now,
         mysteryId: "reunion_99",
         variantIndex: 0,
+        pacingPreset: "standard",
         accompliceEnabled: false,
         accomplicePlayerId: null,
         midTwistTriggered: false,
@@ -3253,6 +3451,7 @@ function joinExistingRoom(code, playerName, asMode) {
         phaseEndsAt: null,
         isPaused: false,
         pausedRemainingMs: null,
+        hotSeat: null,
         players: {},
         publicClues: {},
         votes: {},
@@ -3352,25 +3551,35 @@ function toggleTimerPause() {
     const rem = typeof s.pausedRemainingMs === "number" ? s.pausedRemainingMs : 5 * 60 * 1000;
     const sabCoolRem = typeof s.pausedSabotageCooldownRemMs === "number" ? s.pausedSabotageCooldownRemMs : 0;
     const sabBlkRem = typeof s.pausedSabotageBlackoutRemMs === "number" ? s.pausedSabotageBlackoutRemMs : 0;
+    const hotRem = typeof s.pausedHotSeatRemMs === "number" ? s.pausedHotSeatRemMs : 0;
+    const resumedHotSeat = (s.hotSeat && s.hotSeat.charId && hotRem > 0) ? {
+      charId: s.hotSeat.charId,
+      endsAt: now + hotRem,
+      startedAt: s.hotSeat.startedAt || now
+    } : null;
     updates = {
       isPaused: false,
       pausedRemainingMs: null,
       pausedSabotageCooldownRemMs: null,
       pausedSabotageBlackoutRemMs: null,
+      pausedHotSeatRemMs: null,
       phaseEndsAt: now + rem,
       sabotageCooldownUntil: sabCoolRem > 0 ? (now + sabCoolRem) : null,
       sabotageBlackoutUntil: sabBlkRem > 0 ? (now + sabBlkRem) : null,
+      hotSeat: resumedHotSeat,
       updatedAt: now
     };
   } else {
     const rem = Math.max(0, (s.phaseEndsAt || now) - now);
     const sabCoolRem = s.sabotageCooldownUntil ? Math.max(0, s.sabotageCooldownUntil - now) : 0;
     const sabBlkRem = s.sabotageBlackoutUntil ? Math.max(0, s.sabotageBlackoutUntil - now) : 0;
+    const hotRem = (s.hotSeat && s.hotSeat.endsAt) ? Math.max(0, s.hotSeat.endsAt - now) : 0;
     updates = {
       isPaused: true,
       pausedRemainingMs: rem,
       pausedSabotageCooldownRemMs: sabCoolRem,
       pausedSabotageBlackoutRemMs: sabBlkRem,
+      pausedHotSeatRemMs: hotRem,
       updatedAt: now
     };
   }
@@ -3667,6 +3876,9 @@ function assignCharactersAndStartAct1() {
     s.players[pid].isAccomplice = false;
     s.players[pid].pinCode = pin;
     s.players[pid].patDownTokens = 1;
+    s.players[pid].act1Missions = {};
+    s.players[pid].act1BonusClaimed = false;
+    s.players[pid].primeTargets = [];
     s.players[pid].unlockedPrivateClues = {};
     s.players[pid].plantedDecoys = {};
 
@@ -3683,12 +3895,15 @@ function assignCharactersAndStartAct1() {
   }
 
   const now = Date.now();
+  const pacingCfg = getPacingConfig(s.pacingPreset);
   s.round = 1;
   s.isPaused = false;
   s.pausedRemainingMs = null;
   s.sabotageCooldownUntil = null;
   s.sabotageBlackoutUntil = null;
-  s.phaseEndsAt = now + 15 * 60 * 1000;
+  s.hotSeat = null;
+  s.pausedHotSeatRemMs = null;
+  s.phaseEndsAt = now + pacingCfg.act1Min * 60 * 1000;
   s.publicClues = {};
   s.votes = {};
   s.awardVotes = {};
@@ -3711,6 +3926,8 @@ function assignCharactersAndStartAct1() {
       pausedRemainingMs: null,
       sabotageCooldownUntil: null,
       sabotageBlackoutUntil: null,
+      hotSeat: null,
+      pausedHotSeatRemMs: null,
       phaseEndsAt: s.phaseEndsAt,
       publicClues: {},
       votes: {},
@@ -3724,6 +3941,9 @@ function assignCharactersAndStartAct1() {
       fbUpdates[`players/${pid}/isAccomplice`] = s.players[pid].isAccomplice;
       fbUpdates[`players/${pid}/pinCode`] = s.players[pid].pinCode;
       fbUpdates[`players/${pid}/patDownTokens`] = 1;
+      fbUpdates[`players/${pid}/act1Missions`] = null;
+      fbUpdates[`players/${pid}/act1BonusClaimed`] = false;
+      fbUpdates[`players/${pid}/primeTargets`] = null;
       fbUpdates[`players/${pid}/unlockedPrivateClues`] = null;
       fbUpdates[`players/${pid}/plantedDecoys`] = null;
     });
@@ -3813,13 +4033,16 @@ function triggerBlackoutMurder() {
   };
 
   midTwistLatch = false;
+  const pacingCfg = getPacingConfig(s.pacingPreset);
   if (firebaseDb && appState.roomCode) {
     firebaseDb.ref(`mystery_rooms/${appState.roomCode}`).update({
       round: 2,
       isPaused: false,
       pausedRemainingMs: null,
       midTwistTriggered: false,
-      phaseEndsAt: now + 20 * 60 * 1000,
+      hotSeat: null,
+      pausedHotSeatRemMs: null,
+      phaseEndsAt: now + pacingCfg.act2Min * 60 * 1000,
       "publicClues/motive_0": motiveClue,
       latestEvent: evObj,
       updatedAt: now
@@ -3829,7 +4052,9 @@ function triggerBlackoutMurder() {
     s.isPaused = false;
     s.pausedRemainingMs = null;
     s.midTwistTriggered = false;
-    s.phaseEndsAt = now + 20 * 60 * 1000;
+    s.hotSeat = null;
+    s.pausedHotSeatRemMs = null;
+    s.phaseEndsAt = now + pacingCfg.act2Min * 60 * 1000;
     if (!s.publicClues || Array.isArray(s.publicClues)) s.publicClues = {};
     s.publicClues["motive_0"] = motiveClue;
     s.latestEvent = evObj;
@@ -4086,10 +4311,13 @@ function advanceToAct3Voting() {
     }
   });
 
+  const pacingCfg = getPacingConfig(s.pacingPreset);
   s.round = 3;
   s.isPaused = false;
   s.pausedRemainingMs = null;
-  s.phaseEndsAt = now + 10 * 60 * 1000;
+  s.hotSeat = null;
+  s.pausedHotSeatRemMs = null;
+  s.phaseEndsAt = now + pacingCfg.act3Min * 60 * 1000;
   s.latestEvent = {
     id: "ev_act3_" + now,
     type: "phase",
@@ -4102,6 +4330,8 @@ function advanceToAct3Voting() {
       round: 3,
       isPaused: false,
       pausedRemainingMs: null,
+      hotSeat: null,
+      pausedHotSeatRemMs: null,
       phaseEndsAt: s.phaseEndsAt,
       latestEvent: s.latestEvent,
       updatedAt: now
@@ -4251,6 +4481,8 @@ function resetRoomForNextGame(optionalNextMysteryId) {
       phaseEndsAt: null,
       sabotageCooldownUntil: null,
       sabotageBlackoutUntil: null,
+      hotSeat: null,
+      pausedHotSeatRemMs: null,
       publicClues: null,
       votes: null,
       awardVotes: null,
@@ -4262,6 +4494,9 @@ function resetRoomForNextGame(optionalNextMysteryId) {
       fbUpdates[`players/${pid}/sharedAlibi`] = false;
       fbUpdates[`players/${pid}/isAccomplice`] = false;
       fbUpdates[`players/${pid}/patDownTokens`] = 1;
+      fbUpdates[`players/${pid}/act1Missions`] = null;
+      fbUpdates[`players/${pid}/act1BonusClaimed`] = false;
+      fbUpdates[`players/${pid}/primeTargets`] = null;
       fbUpdates[`players/${pid}/unlockedPrivateClues`] = null;
       fbUpdates[`players/${pid}/plantedDecoys`] = null;
     });
@@ -4277,6 +4512,8 @@ function resetRoomForNextGame(optionalNextMysteryId) {
     copy.phaseEndsAt = null;
     copy.sabotageCooldownUntil = null;
     copy.sabotageBlackoutUntil = null;
+    copy.hotSeat = null;
+    copy.pausedHotSeatRemMs = null;
     copy.publicClues = {};
     copy.votes = {};
     copy.awardVotes = {};
@@ -4286,6 +4523,9 @@ function resetRoomForNextGame(optionalNextMysteryId) {
       copy.players[pid].sharedAlibi = false;
       copy.players[pid].isAccomplice = false;
       copy.players[pid].patDownTokens = 1;
+      copy.players[pid].act1Missions = {};
+      copy.players[pid].act1BonusClaimed = false;
+      copy.players[pid].primeTargets = [];
       copy.players[pid].unlockedPrivateClues = {};
       copy.players[pid].plantedDecoys = {};
     });
@@ -4300,6 +4540,7 @@ let warningPlayedForPhase = null;
 let threeMinWarningPlayedForPhase = null;
 let wasSabotageBlackoutActive = false;
 let wasSabotageOnCooldown = false;
+let wasHotSeatActive = false;
 
 setInterval(() => {
   const badge = document.getElementById("timerBadge");
@@ -4309,7 +4550,7 @@ setInterval(() => {
   if (appState.viewMode === "home" || !s || (!s.phaseEndsAt && !s.isPaused) || s.round === 0 || s.round === 4) {
     if (badge) badge.classList.add("hidden");
     if (tvTimer) tvTimer.textContent = "--:--";
-    if (appState.viewMode === "tv") {
+    if (isAudioOutputActive()) {
       soundFX.evaluateEscalation(999, false, false, 0);
     }
     return;
@@ -4339,9 +4580,16 @@ setInterval(() => {
   const blkActive = isSabotageBlackoutActive(s);
   const blkRemSec = getSabotageBlackoutRemainingSec(s);
   const coolRemSec = getSabotageCooldownRemainingSec(s);
+  const hotActive = isHotSeatActive(s);
+  const hotRemSec = getHotSeatRemainingSec(s);
 
   const blkCountdownEl = document.getElementById("sabotageBlackoutCountdown");
   if (blkCountdownEl) blkCountdownEl.textContent = `${blkRemSec}s`;
+
+  const hotCountdownEl = document.getElementById("hotSeatCountdown");
+  if (hotCountdownEl) hotCountdownEl.textContent = `${hotRemSec}s`;
+  const hotMobileCountdownEl = document.getElementById("hotSeatMobileCountdown");
+  if (hotMobileCountdownEl) hotMobileCountdownEl.textContent = `${hotRemSec}s`;
 
   const coolBadgeEl = document.getElementById("killerSabotageCooldownBadge");
   if (coolBadgeEl) {
@@ -4364,6 +4612,13 @@ setInterval(() => {
     wasSabotageBlackoutActive = blkActive;
   }
 
+  if (wasHotSeatActive && !hotActive) {
+    wasHotSeatActive = false;
+    renderApp();
+  } else {
+    wasHotSeatActive = hotActive;
+  }
+
   if (wasSabotageOnCooldown && coolRemSec === 0 && !s.isPaused) {
     wasSabotageOnCooldown = false;
     HapticsEngine.trigger("READY");
@@ -4372,24 +4627,25 @@ setInterval(() => {
     wasSabotageOnCooldown = true;
   }
 
-  if (appState.viewMode === "tv") {
+  if (isAudioOutputActive()) {
     soundFX.evaluateEscalation(diffSec, Boolean(s.isPaused), blkActive, s.round);
   }
 
   if (!s.isPaused) {
-    if (s.round === 2 && !s.midTwistTriggered && !midTwistLatch && diffSec <= 600 && diffSec > 0) {
+    const pacingCfg = getPacingConfig(s.pacingPreset);
+    if (s.round === 2 && !s.midTwistTriggered && !midTwistLatch && diffSec <= pacingCfg.twistAtSec && diffSec > 0) {
       const me = s.players && s.players[appState.playerId];
       if (appState.viewMode === "tv" || (me && me.isHost)) {
         triggerMidRoundTwist();
       }
     }
 
-    if (appState.viewMode === "tv" && diffSec === 180 && threeMinWarningPlayedForPhase !== s.phaseEndsAt) {
+    if (isAudioOutputActive() && diffSec === 180 && threeMinWarningPlayedForPhase !== s.phaseEndsAt) {
       threeMinWarningPlayedForPhase = s.phaseEndsAt;
       soundFX.playChime();
     }
 
-    if (appState.viewMode === "tv" && diffSec === 60 && warningPlayedForPhase !== s.phaseEndsAt) {
+    if (isAudioOutputActive() && diffSec === 60 && warningPlayedForPhase !== s.phaseEndsAt) {
       warningPlayedForPhase = s.phaseEndsAt;
       soundFX.playChime();
       soundFX.speakBulletin("One minute remaining in the current phase.");
@@ -4683,6 +4939,13 @@ function renderTVDashboard() {
   const sabBlackoutRemSec = getSabotageBlackoutRemainingSec(s);
   const isBlackout = (s.round === 2 && s.latestEvent && s.latestEvent.type === "blackout") || isSabBlackout;
   const accPlayer = (s.accomplicePlayerId && s.players) ? s.players[s.accomplicePlayerId] : null;
+  const highSuspicionCount = computeHighSuspicionSuspectCount(s);
+  const hotActive = isHotSeatActive(s);
+  const hotRemSec = getHotSeatRemainingSec(s);
+  const hotChar = (hotActive && s.hotSeat && s.hotSeat.charId) ? pack.characters.find(c => c.id === s.hotSeat.charId) : null;
+  const hotPlayer = hotChar ? playersList.find(p => p.characterId === hotChar.id) : null;
+  const hotLeakedClue = hotChar ? cluesList.find(cl => cl.id === "search_" + hotChar.id) : null;
+  const pacingCfg = getPacingConfig(s.pacingPreset);
 
   const roundTitles = {
     0: "PRE-GAME LOBBY — SCAN QR OR ENTER CODE TO JOIN",
@@ -4747,6 +5010,9 @@ function renderTVDashboard() {
             ${s.round === 0 ? `
               <select onchange="changeRoomMystery(this.value)" class="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white">
                 ${packList.map((m, idx) => `<option value="${m.id}" ${m.id === s.mysteryId ? 'selected' : ''}>${idx + 1}. ${escapeHtml(m.title)}</option>`).join("")}
+              </select>
+              <select onchange="changePacingPreset(this.value)" class="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-amber-300">
+                ${Object.values(PACING_PRESETS).map(p => `<option value="${p.key}" ${p.key === pacingCfg.key ? 'selected' : ''}>${escapeHtml(p.shortLabel)}</option>`).join("")}
               </select>
               <button onclick="addDemoPlayersToFillSix()" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">+ Fill 6 Demo Bots</button>
               <button onclick="assignCharactersAndStartAct1()" class="px-3 py-1 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white">🎲 Start Act I</button>
@@ -4846,7 +5112,35 @@ function renderTVDashboard() {
             </div>
           ` : `
             <div class="flex-1 min-h-0 flex flex-col gap-2.5 overflow-hidden">
-              ${s.round >= 2 ? `
+              ${hotActive && hotChar ? `
+                <div class="shrink-0 bg-amber-950/80 border-2 border-amber-400 rounded-2xl p-3.5 shadow-2xl space-y-2 animate-pulse">
+                  <div class="flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                      ${renderMugshotAvatar(hotPlayer || { id: "npc_" + hotChar.id, name: hotChar.name }, false, "w-12 h-12")}
+                      <div class="min-w-0">
+                        <div class="text-[11px] font-mono-code uppercase font-extrabold text-amber-300 tracking-wider">🔦 60-SECOND HOT SEAT INTERROGATION SPOTLIGHT</div>
+                        <div class="text-sm lg:text-base font-extrabold text-white truncate">
+                          ${escapeHtml(hotChar.name)} ${hotPlayer ? `<span class="text-xs font-normal text-amber-200">(${escapeHtml(hotPlayer.name)})</span>` : ""}
+                        </div>
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                      <span id="hotSeatCountdown" class="text-xl lg:text-2xl font-mono-code font-extrabold px-3 py-1 rounded-xl bg-black/70 text-amber-300 border border-amber-400">${hotRemSec}s</span>
+                      <button onclick="clearHotSeat()" class="text-[10px] font-mono-code bg-slate-900 hover:bg-slate-800 text-slate-300 px-2 py-1 rounded-lg border border-slate-700">⏹ End</button>
+                    </div>
+                  </div>
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                    <div class="bg-slate-950/90 border border-amber-700/60 rounded-xl p-2">
+                      <span class="text-[10px] font-mono-code uppercase text-cyan-300 font-bold block">Official Alibi Statement:</span>
+                      <span class="text-slate-100 leading-snug">${escapeHtml(hotChar.publicAlibi)}</span>
+                    </div>
+                    <div class="bg-slate-950/90 border border-rose-700/60 rounded-xl p-2">
+                      <span class="text-[10px] font-mono-code uppercase text-rose-300 font-bold block">Known Physical Evidence:</span>
+                      <span class="text-slate-100 leading-snug">${hotLeakedClue ? escapeHtml(hotLeakedClue.detail) : "No search evidence leaked to public board yet — demand their alibi!"}</span>
+                    </div>
+                  </div>
+                </div>
+              ` : s.round >= 2 ? `
                 <div class="shrink-0 bg-rose-950/50 border border-rose-800/80 rounded-xl px-3.5 py-2.5">
                   <div class="text-[11px] font-mono-code uppercase text-rose-300 font-bold mb-0.5">🚨 CRIME SCENE REPORT</div>
                   <p class="text-xs lg:text-sm text-slate-100 leading-snug">${pack.crimeSceneReport}</p>
@@ -4896,10 +5190,19 @@ function renderTVDashboard() {
         <!-- RIGHT 5 COLUMNS: ZERO-SCROLL 2-COLUMN SUSPECT MUGSHOT ROSTER (ALL 10 FIT AT ONCE) -->
         <div class="col-span-12 lg:col-span-5 bg-slate-900/80 border border-slate-800 rounded-2xl p-3.5 flex flex-col justify-between min-h-0 overflow-hidden">
           <div class="flex-1 min-h-0 flex flex-col overflow-hidden">
-            <div class="shrink-0 flex items-center justify-between mb-2">
+            <div class="shrink-0 flex items-center justify-between mb-1.5">
               <h2 class="text-sm lg:text-base font-bold text-white">Suspect Mugshot Roster (${playersList.length}/10)</h2>
-              <span class="text-[11px] font-mono-code text-slate-400">${s.round === 3 ? `${Object.keys(s.votes || {}).length} Voted` : (s.accompliceEnabled ? "Accomplice Mode ON" : "Standard Mode")}</span>
+              <span class="text-[11px] font-mono-code text-slate-400">${s.round === 3 ? `${Object.keys(s.votes || {}).length} Voted` : (s.accompliceEnabled ? "Accomplice Mode ON" : pacingCfg.shortLabel)}</span>
             </div>
+            ${s.round >= 1 && s.round <= 3 ? `
+              <div class="shrink-0 mb-2 px-3 py-1.5 rounded-xl border flex items-center justify-between gap-2 ${highSuspicionCount > 0 ? 'bg-rose-950/60 border-rose-600/80 text-rose-200' : 'bg-slate-950/80 border-slate-800 text-slate-400'}">
+                <div class="flex items-center gap-1.5 text-xs font-mono-code font-bold">
+                  <span>${highSuspicionCount > 0 ? '🔥' : '🕵️'}</span>
+                  <span>${highSuspicionCount === 1 ? '1 suspect is highly suspicious' : `${highSuspicionCount} suspects are highly suspicious`}</span>
+                </div>
+                <span class="text-[10px] font-mono-code opacity-80">3+ Prime Targets</span>
+              </div>
+            ` : ""}
             ${playersList.length === 0 ? `
               <div class="flex-1 min-h-0 text-sm text-slate-500 flex items-center justify-center text-center border border-dashed border-slate-800 rounded-xl p-4">
                 No players joined yet. Scan the QR code or open this page on your phone!
@@ -5297,7 +5600,12 @@ function renderMobilePlayerView() {
         </div>
       ` : ""}
 
-      ${s.round === 1 && myChar ? `
+      ${s.round === 1 && myChar ? (() => {
+        const missions = getAct1Missions(pack);
+        const myMissions = (me && me.act1Missions) ? me.act1Missions : {};
+        const doneCount = [0, 1, 2].filter(i => Boolean(myMissions[i])).length;
+        const bonusClaimed = Boolean(me && me.act1BonusClaimed);
+        return `
         <div class="bg-indigo-950/50 border border-indigo-700/80 rounded-2xl p-4 space-y-3 shadow-lg">
           <div class="flex items-center justify-between">
             <span class="text-xs font-mono-code uppercase font-bold text-indigo-300">Act I Objective (Everyone Alive)</span>
@@ -5306,11 +5614,32 @@ function renderMobilePlayerView() {
           <p class="text-sm text-white leading-relaxed font-medium">
             ${escapeHtml(myChar.act1Prompt)}
           </p>
+
+          <div class="bg-slate-950/90 border border-indigo-800/70 rounded-xl p-3 space-y-2">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-[11px] font-mono-code uppercase font-bold text-amber-300">🥂 Act I Icebreaker Mini-Missions (${doneCount}/3)</span>
+              <span class="text-[10px] font-mono-code px-2 py-0.5 rounded ${bonusClaimed ? 'bg-emerald-950 text-emerald-300 border border-emerald-700 font-bold' : 'bg-slate-900 text-slate-400 border border-slate-800'}">
+                ${bonusClaimed ? '🎁 +1 Pat-Down Token Unlocked!' : 'Reward: +1 Pat-Down Token'}
+              </span>
+            </div>
+            <div class="space-y-1.5">
+              ${missions.map((mText, idx) => {
+                const checked = Boolean(myMissions[idx]);
+                return `
+                  <button type="button" onclick="toggleAct1Mission(${idx})" class="w-full text-left p-2 rounded-lg border text-xs flex items-center gap-2.5 transition ${checked ? 'bg-emerald-950/40 border-emerald-700/70 text-emerald-200 line-through opacity-90' : 'bg-slate-900/90 border-slate-800 text-slate-200 hover:border-indigo-600'}">
+                    <span class="w-4 h-4 rounded flex items-center justify-center border ${checked ? 'bg-emerald-600 border-emerald-400 text-white' : 'border-slate-600'} shrink-0 text-[10px] font-bold">${checked ? '✓' : ''}</span>
+                    <span class="leading-snug">${escapeHtml(mText)}</span>
+                  </button>
+                `;
+              }).join("")}
+            </div>
+          </div>
+
           ${myChar.role === "killer" ? `
             <div class="bg-rose-950/80 border border-rose-700 rounded-xl p-3 mt-2">
               <div class="text-xs font-mono-code font-bold text-rose-300 uppercase mb-1">🔪 SECRET: YOU ARE TONIGHT'S KILLER!</div>
               <p class="text-xs text-rose-200 leading-relaxed mb-3">
-                Blend in during Act I! ${accomplicePlayer ? `Your secret Accomplice in the room is <strong>${escapeHtml(accomplicePlayer.name)}</strong>.` : ""} Once you've mingled for ~10–15 minutes, press below to trigger the Blackout Murder!
+                Blend in during Act I! ${accomplicePlayer ? `Your secret Accomplice in the room is <strong>${escapeHtml(accomplicePlayer.name)}</strong>.` : ""} Once you've mingled, press below to trigger the Blackout Murder!
               </p>
               <button onclick="triggerBlackoutMurder()" class="w-full py-2.5 rounded-xl font-bold text-xs bg-rose-600 hover:bg-rose-500 text-white shadow">
                 ⚡ Execute Secret Strike (Trigger Blackout)
@@ -5318,7 +5647,8 @@ function renderMobilePlayerView() {
             </div>
           ` : ""}
         </div>
-      ` : ""}
+        `;
+      })() : ""}
 
       ${s.round >= 2 && myChar ? `
         ${myChar.role === "victim" ? `
@@ -5368,29 +5698,44 @@ function renderMobilePlayerView() {
             </div>
 
             <div class="pt-3 border-t border-rose-800/80">
-              <div class="text-xs font-mono-code uppercase font-bold text-cyan-300 mb-1">🔎 STEP 2: SEARCH SUSPECTS & WITNESS FILES</div>
+              <div class="flex items-center justify-between gap-2 mb-1">
+                <div class="text-xs font-mono-code uppercase font-bold text-cyan-300">🔎 STEP 2: HOT SEAT SPOTLIGHT & SUSPECT SEARCH</div>
+                ${isHotSeatActive(s) ? `
+                  <button onclick="clearHotSeat()" class="text-[10px] font-mono-code font-bold px-2 py-0.5 rounded bg-amber-600 text-white">
+                    ⏹ End Hot Seat (<span id="hotSeatMobileCountdown">${getHotSeatRemainingSec(s)}s</span>)
+                  </button>
+                ` : ""}
+              </div>
               <p class="text-xs text-slate-200 mb-2.5">
-                Interrogate suspects aloud first, or let players use their 1-on-1 Pat-Down PINs! You can also broadcast any suspect or witness file below:
+                Put any suspect on the <strong>🔦 60s TV Hot Seat Spotlight</strong> while the room grills their alibi, or broadcast their search file below:
               </p>
               <div data-scroll-id="ghostSearchScroll" class="space-y-2 max-h-80 overflow-y-auto pr-1">
                 ${pack.characters.slice(1).map(c => {
                   const cid = "search_" + c.id;
                   const alreadySearched = cluesList.some(cl => cl.id === cid);
                   const isActivePlayer = activeSuspects.some(as => as.id === c.id);
+                  const isThisOnHotSeat = isHotSeatActive(s) && s.hotSeat && s.hotSeat.charId === c.id;
                   return `
-                    <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-2.5 flex items-center justify-between gap-2">
-                      <div>
-                        <div class="flex items-center gap-1.5">
+                    <div class="bg-slate-950/90 border ${isThisOnHotSeat ? 'border-amber-400 bg-amber-950/30' : 'border-slate-800'} rounded-xl p-2.5 flex items-center justify-between gap-2">
+                      <div class="min-w-0 flex-1">
+                        <div class="flex items-center gap-1.5 flex-wrap">
                           <span class="text-xs font-bold text-white">${escapeHtml(c.name)}</span>
                           <span class="text-[10px] font-mono-code px-1.5 py-0.5 rounded ${isActivePlayer ? 'bg-indigo-950 text-indigo-300' : 'bg-slate-800 text-slate-400'}">
                             ${isActivePlayer ? 'In Room' : 'Witness File'}
                           </span>
                         </div>
-                        <div class="text-[11px] text-slate-400 mt-0.5">${alreadySearched ? escapeHtml(c.searchClue) : 'Tap Search after interrogating to reveal physical evidence...'}</div>
+                        <div class="text-[11px] text-slate-400 mt-0.5">${alreadySearched ? escapeHtml(c.searchClue) : 'Tap 🔦 Hot Seat to interrogate on TV, or 🔎 Search to leak evidence...'}</div>
                       </div>
-                      <button onclick="releaseCharacterSearchClue('${c.id}')" ${alreadySearched ? 'disabled' : ''} class="shrink-0 px-2.5 py-1.5 rounded-lg text-xs font-bold ${alreadySearched ? 'bg-slate-800 text-slate-500' : 'bg-cyan-600 hover:bg-cyan-500 text-white'}">
-                        ${alreadySearched ? 'Revealed ✓' : '🔎 Search'}
-                      </button>
+                      <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 shrink-0">
+                        ${s.round === 2 ? `
+                          <button onclick="${isThisOnHotSeat ? 'clearHotSeat()' : `triggerHotSeat('${c.id}')`}" class="px-2.5 py-1.5 rounded-lg text-xs font-bold ${isThisOnHotSeat ? 'bg-amber-500 text-black' : 'bg-amber-950/90 hover:bg-amber-800 text-amber-300 border border-amber-700'}">
+                            ${isThisOnHotSeat ? '⏹ Stop 60s' : '🔦 Hot Seat'}
+                          </button>
+                        ` : ""}
+                        <button onclick="releaseCharacterSearchClue('${c.id}')" ${alreadySearched ? 'disabled' : ''} class="px-2.5 py-1.5 rounded-lg text-xs font-bold ${alreadySearched ? 'bg-slate-800 text-slate-500' : 'bg-cyan-600 hover:bg-cyan-500 text-white'}">
+                          ${alreadySearched ? 'Revealed ✓' : '🔎 Search'}
+                        </button>
+                      </div>
                     </div>
                   `;
                 }).join("")}
@@ -5552,6 +5897,11 @@ function renderMobilePlayerView() {
             <span class="text-[11px] text-slate-400">Round ${s.round}/4</span>
           </div>
 
+          <button type="button" onclick="togglePhoneSpeakerMode()" class="w-full py-2 px-3 rounded-xl text-xs font-mono-code font-bold border flex items-center justify-between transition ${appState.phoneSpeakerEnabled ? 'bg-emerald-950/80 border-emerald-500 text-emerald-300' : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'}">
+            <span>🔊 Use My Phone as TV Speaker</span>
+            <span class="px-2 py-0.5 rounded text-[10px] ${appState.phoneSpeakerEnabled ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'}">${appState.phoneSpeakerEnabled ? 'ON (Bluetooth Ready)' : 'OFF'}</span>
+          </button>
+
           ${s.round >= 1 && s.round <= 3 ? `
             <div class="flex gap-2 pb-2 border-b border-slate-800">
               <button onclick="toggleTimerPause()" class="flex-1 py-2 rounded-xl text-xs font-bold ${s.isPaused ? 'bg-emerald-700 text-white' : 'bg-slate-800 text-slate-200 border border-slate-700'}">
@@ -5570,6 +5920,12 @@ function renderMobilePlayerView() {
                 ${packList.map((m, idx) => `<option value="${m.id}" ${m.id === s.mysteryId ? 'selected' : ''}>${idx + 1}. ${escapeHtml(m.title)}</option>`).join("")}
               </select>
               <div class="grid grid-cols-1 gap-2">
+                <label class="flex items-center justify-between bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200">
+                  <span>⏱ Game Length Preset</span>
+                  <select onchange="changePacingPreset(this.value)" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-cyan-300">
+                    ${Object.values(PACING_PRESETS).map(p => `<option value="${p.key}" ${p.key === (s.pacingPreset || 'standard') ? 'selected' : ''}>${escapeHtml(p.label)}</option>`).join("")}
+                  </select>
+                </label>
                 <label class="flex items-center justify-between bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200">
                   <span>🎲 Ending Variant Selection</span>
                   <select onchange="setPreferredVariant(this.value)" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-amber-300">
