@@ -255,6 +255,11 @@ document.addEventListener("visibilitychange", () => {
     requestScreenWakeLock();
   }
 });
+window.addEventListener("pagehide", () => {
+  if (appState.viewMode === "player" && appState.roomCode && appState.playerId && appState.sessionData && appState.sessionData.round === 0) {
+    removePlayerFromLobby(appState.roomCode, appState.playerId, appState.sessionData);
+  }
+});
 
 /* ============================================================================
    2. ALL 7 MYSTERY CARTRIDGES (21 ENDINGS) + 3 KILLER VARIANTS + TIMED MID-ACT TWISTS
@@ -3613,23 +3618,26 @@ function registerPlayerInSession(pid, name) {
   }
 }
 
-function removePlayerFromLobby(roomCode, pid) {
+function removePlayerFromLobby(roomCode, pid, sessionSnapshot) {
   if (!roomCode || !pid) return;
-  const s = appState.sessionData;
+  const s = sessionSnapshot || appState.sessionData;
   const players = (s && s.players) ? s.players : {};
   const leavingPlayer = players[pid];
-  if (!leavingPlayer) return;
-  const wasHost = Boolean(leavingPlayer.isHost);
+  const wasHost = Boolean(leavingPlayer && leavingPlayer.isHost);
   const remainingPlayers = Object.values(players).filter(p => p && p.id !== pid);
 
   if (firebaseDb) {
     if (wasHost && remainingPlayers.length > 0) {
-      firebaseDb.ref(`mystery_rooms/${roomCode}/players/${remainingPlayers[0].id}/isHost`).set(true);
+      try {
+        firebaseDb.ref(`mystery_rooms/${roomCode}/players/${remainingPlayers[0].id}/isHost`).set(true);
+      } catch (e) {}
     }
     const playerRef = firebaseDb.ref(`mystery_rooms/${roomCode}/players/${pid}`);
     try { playerRef.onDisconnect().cancel(); } catch (e) {}
     playerRef.remove();
-    firebaseDb.ref(`mystery_rooms/${roomCode}/updatedAt`).set(Date.now());
+    try {
+      firebaseDb.ref(`mystery_rooms/${roomCode}/updatedAt`).set(Date.now());
+    } catch (e) {}
   } else if (s && s.players) {
     const copy = JSON.parse(JSON.stringify(s));
     delete copy.players[pid];
@@ -3638,6 +3646,15 @@ function removePlayerFromLobby(roomCode, pid) {
     }
     writeRoomState(copy);
   }
+
+  // Backup keepalive DELETE request: ensures immediate server-side deletion even if mobile tab is closing
+  try {
+    const dbUrl = (DEFAULT_FIREBASE_CONFIG && DEFAULT_FIREBASE_CONFIG.databaseURL) ? DEFAULT_FIREBASE_CONFIG.databaseURL : "";
+    if (dbUrl && typeof fetch === "function") {
+      const restUrl = `${dbUrl.replace(/\/$/, "")}/mystery_rooms/${roomCode}/players/${pid}.json`;
+      fetch(restUrl, { method: "DELETE", keepalive: true }).catch(() => {});
+    }
+  } catch (e) {}
 }
 
 function kickPlayerFromLobby(pid) {
@@ -4836,9 +4853,16 @@ function resetToHome() {
   soundFX.stopAll();
   const currentCode = appState.roomCode;
   const currentPid = appState.playerId;
-  const isLobby = appState.sessionData && appState.sessionData.round === 0;
+  const s = appState.sessionData;
+  const isLobby = s && s.round === 0;
   const wasPlayer = appState.viewMode === "player";
 
+  // 1. Remove player immediately while currentCode and session snapshot are active
+  if (wasPlayer && currentCode && currentPid && isLobby) {
+    removePlayerFromLobby(currentCode, currentPid, s);
+  }
+
+  // 2. Detach listener and clear local state
   appState.viewMode = "home";
   appState.roomCode = "";
   appState.sessionData = null;
@@ -4854,10 +4878,6 @@ function resetToHome() {
     url.searchParams.delete("tv");
     window.history.replaceState({}, "", url.toString());
   } catch (e) {}
-
-  if (wasPlayer && currentCode && currentPid && isLobby) {
-    removePlayerFromLobby(currentCode, currentPid);
-  }
 
   document.getElementById("timerBadge").classList.add("hidden");
   updateModeBadge();
