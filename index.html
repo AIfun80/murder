@@ -3366,6 +3366,44 @@ function handleIncomingSessionUpdate(newSession) {
     try { localStorage.removeItem(getCorkboardKey()); } catch (e) {}
   }
 
+  // If this player was active in the lobby (round 0) and was removed (e.g. kicked or cleared)
+  if (appState.viewMode === "player" && appState.playerId && appState.sessionData && appState.sessionData.round === 0) {
+    const wasInLobby = appState.sessionData.players && appState.sessionData.players[appState.playerId];
+    const isStillInLobby = newSession.players && newSession.players[appState.playerId];
+    if (wasInLobby && !isStillInLobby) {
+      alert("You have left or were removed from the room lobby.");
+      resetToHome();
+      return;
+    }
+  }
+
+  // Disconnect lifecycle management without constant polling:
+  // In Round 0 (Lobby), arm onDisconnect().remove()
+  // In Round 1+ (Act I-IV), cancel onDisconnect so players who sleep/reload don't lose character roles!
+  if (firebaseDb && appState.roomCode && appState.playerId) {
+    try {
+      const pRef = firebaseDb.ref(`mystery_rooms/${appState.roomCode}/players/${appState.playerId}`);
+      if (newSession.round === 0) {
+        if (newSession.players && newSession.players[appState.playerId]) {
+          pRef.onDisconnect().remove();
+        }
+      } else {
+        pRef.onDisconnect().cancel();
+      }
+    } catch (e) {}
+  }
+
+  // Self-healing Host check: if no player has isHost=true in lobby, promote first connected player
+  if (newSession.round === 0 && newSession.players) {
+    const pList = Object.values(newSession.players);
+    if (pList.length > 0 && !pList.some(p => p && p.isHost)) {
+      const firstPid = pList[0].id;
+      if (appState.playerId === firstPid && firebaseDb && appState.roomCode) {
+        firebaseDb.ref(`mystery_rooms/${appState.roomCode}/players/${firstPid}/isHost`).set(true);
+      }
+    }
+  }
+
   appState.sessionData = newSession;
   const pack = getEffectivePack(newSession.mysteryId, newSession.variantIndex);
 
@@ -3561,13 +3599,54 @@ function registerPlayerInSession(pid, name) {
   };
 
   if (firebaseDb && appState.roomCode) {
-    firebaseDb.ref(`mystery_rooms/${appState.roomCode}/players/${pid}`).set(playerObj);
+    const playerRef = firebaseDb.ref(`mystery_rooms/${appState.roomCode}/players/${pid}`);
+    playerRef.set(playerObj);
+    if (!s || s.round === 0) {
+      try { playerRef.onDisconnect().remove(); } catch (e) {}
+    }
     firebaseDb.ref(`mystery_rooms/${appState.roomCode}/updatedAt`).set(Date.now());
   } else if (s) {
     const copy = JSON.parse(JSON.stringify(s));
     if (!copy.players) copy.players = {};
     copy.players[pid] = playerObj;
     writeRoomState(copy);
+  }
+}
+
+function removePlayerFromLobby(roomCode, pid) {
+  if (!roomCode || !pid) return;
+  const s = appState.sessionData;
+  const players = (s && s.players) ? s.players : {};
+  const leavingPlayer = players[pid];
+  if (!leavingPlayer) return;
+  const wasHost = Boolean(leavingPlayer.isHost);
+  const remainingPlayers = Object.values(players).filter(p => p && p.id !== pid);
+
+  if (firebaseDb) {
+    if (wasHost && remainingPlayers.length > 0) {
+      firebaseDb.ref(`mystery_rooms/${roomCode}/players/${remainingPlayers[0].id}/isHost`).set(true);
+    }
+    const playerRef = firebaseDb.ref(`mystery_rooms/${roomCode}/players/${pid}`);
+    try { playerRef.onDisconnect().cancel(); } catch (e) {}
+    playerRef.remove();
+    firebaseDb.ref(`mystery_rooms/${roomCode}/updatedAt`).set(Date.now());
+  } else if (s && s.players) {
+    const copy = JSON.parse(JSON.stringify(s));
+    delete copy.players[pid];
+    if (wasHost && remainingPlayers.length > 0) {
+      copy.players[remainingPlayers[0].id].isHost = true;
+    }
+    writeRoomState(copy);
+  }
+}
+
+function kickPlayerFromLobby(pid) {
+  const s = appState.sessionData;
+  if (!s || s.round !== 0 || !s.players) return;
+  const target = s.players[pid];
+  if (!target) return;
+  if (confirm(`Remove ${target.name} from the lobby?`)) {
+    removePlayerFromLobby(appState.roomCode, pid);
   }
 }
 
@@ -4755,6 +4834,16 @@ function updateModeBadge() {
 
 function resetToHome() {
   soundFX.stopAll();
+  const currentCode = appState.roomCode;
+  const currentPid = appState.playerId;
+  const isLobby = appState.sessionData && appState.sessionData.round === 0;
+  const wasPlayer = appState.viewMode === "player";
+
+  appState.viewMode = "home";
+  appState.roomCode = "";
+  appState.sessionData = null;
+  appState.qrScannedRoom = false;
+
   if (roomRef) {
     roomRef.off();
     roomRef = null;
@@ -4765,11 +4854,12 @@ function resetToHome() {
     url.searchParams.delete("tv");
     window.history.replaceState({}, "", url.toString());
   } catch (e) {}
-  appState.sessionData = null;
-  appState.roomCode = "";
-  appState.qrScannedRoom = false;
+
+  if (wasPlayer && currentCode && currentPid && isLobby) {
+    removePlayerFromLobby(currentCode, currentPid);
+  }
+
   document.getElementById("timerBadge").classList.add("hidden");
-  appState.viewMode = "home";
   updateModeBadge();
   renderApp();
 }
@@ -5307,7 +5397,11 @@ function renderTVDashboard() {
                         </div>
                       </div>
                       <div class="text-right shrink-0 pl-1">
-                        ${s.round === 3 ? (
+                        ${s.round === 0 && appState.tvControlsOpen ? `
+                          <button onclick="kickPlayerFromLobby('${p.id}')" title="Kick player from lobby" class="px-2 py-0.5 rounded text-[10px] font-mono-code font-bold bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-800/60 transition">
+                            ✕
+                          </button>
+                        ` : s.round === 3 ? (
                           isGhost
                             ? `<span class="text-[9px] font-mono-code text-rose-300">Ghost</span>`
                             : hasVoted
@@ -5622,6 +5716,31 @@ function renderMobilePlayerView() {
                   `).join("")}
                 </div>
               ` : ""}
+            </div>
+
+            <div class="text-left bg-slate-950/90 border border-slate-800 rounded-xl p-3 space-y-2">
+              <div class="flex items-center justify-between text-xs">
+                <span class="font-mono-code uppercase text-indigo-300 font-bold">👥 Joined in Lobby (${allPlayersList.length}/10)</span>
+                <button type="button" onclick="resetToHome()" class="text-[10px] font-mono-code text-rose-400 hover:text-rose-300">🚪 Leave Lobby</button>
+              </div>
+              <div class="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                ${allPlayersList.map(p => `
+                  <div class="flex items-center justify-between gap-2 p-1.5 rounded-lg bg-slate-900/90 border border-slate-800/80">
+                    <div class="flex items-center gap-2 min-w-0 flex-1">
+                      ${renderMugshotAvatar(p, false, "w-7 h-7")}
+                      <span class="text-xs text-white truncate ${p.id === appState.playerId ? 'font-bold text-indigo-300' : ''}">
+                        ${escapeHtml(p.name)} ${p.id === appState.playerId ? '(You)' : ''}
+                      </span>
+                      ${p.isHost ? '<span class="text-[8px] font-mono-code bg-slate-800 text-amber-300 px-1 py-0.5 rounded shrink-0">HOST</span>' : ''}
+                    </div>
+                    ${isHost && p.id !== appState.playerId ? `
+                      <button type="button" onclick="kickPlayerFromLobby('${p.id}')" title="Remove player from lobby" class="shrink-0 px-2 py-0.5 rounded text-[10px] font-mono-code font-bold bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-800/60 transition">
+                        ✕ Remove
+                      </button>
+                    ` : ''}
+                  </div>
+                `).join("")}
+              </div>
             </div>
           </div>
         ` : myChar ? `
@@ -6092,7 +6211,8 @@ const guideSteps = [
     bullets: [
       "<strong>8 Mystery Cartridges × 3 Endings (24 Whodunits):</strong> Auto mode tracks which endings you've played so replays always pick a fresh Killer and solution.",
       "<strong>⏱ Game Length Presets:</strong> Choose <em>⚡ Quick (~25m)</em>, <em>🕵️ Standard (~45m)</em>, or <em>🍷 Extended (~60m)</em> in the Lobby.",
-      "<strong>🔊 Use My Phone as TV Speaker:</strong> Hosts can toggle Phone Speaker mode ON to play all TV voice bulletins, ambient music, and blackout sirens through their phone or Bluetooth speaker."
+      "<strong>🔊 Use My Phone as TV Speaker:</strong> Hosts can toggle Phone Speaker mode ON to play all TV voice bulletins, ambient music, and blackout sirens through their phone or Bluetooth speaker.",
+      "<strong>🚪 Seamless Lobby Sync:</strong> Exiting on phone or closing the tab automatically removes your mugshot from the TV with zero polling. Hosts can also remove duplicate joins or bots from the lobby roster."
     ]
   },
   {
