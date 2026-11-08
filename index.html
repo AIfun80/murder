@@ -131,7 +131,7 @@
         <button onclick="closeMugshotModal()" class="text-slate-400 hover:text-white text-xl">&times;</button>
       </div>
       <p class="text-xs text-slate-400">Center your face. Auto-exposure & screen-flash boost dark party rooms automatically.</p>
-      <div class="relative w-56 h-56 mx-auto rounded-2xl overflow-hidden border-2 border-indigo-500/80 bg-slate-950 flex items-center justify-center shadow-inner">
+      <div class="relative w-52 h-52 sm:w-56 sm:h-56 max-w-full mx-auto rounded-2xl overflow-hidden border-2 border-indigo-500/80 bg-slate-950 flex items-center justify-center shadow-inner">
         <video id="mugshotVideo" autoplay playsinline muted class="w-full h-full object-cover grayscale contrast-125 -scale-x-100"></video>
       </div>
       <label class="flex items-center justify-center gap-2 text-xs text-amber-300 cursor-pointer select-none">
@@ -157,10 +157,10 @@
         <span class="text-xs font-mono-code uppercase tracking-widest text-indigo-400 font-bold">🕵️ SUSPECT FILE PHOTO</span>
         <button onclick="closeMugshotPreviewModal()" class="text-slate-400 hover:text-white text-xl leading-none">&times;</button>
       </div>
-      <div class="relative w-64 h-64 mx-auto rounded-2xl overflow-hidden border-2 border-slate-700 bg-slate-950 shadow-xl flex items-center justify-center">
+      <div class="relative w-52 h-52 sm:w-64 sm:h-64 max-w-full mx-auto rounded-2xl overflow-hidden border-2 border-slate-700 bg-slate-950 shadow-xl flex items-center justify-center">
         <img id="mugshotPreviewImg" src="" alt="Suspect Mugshot" class="w-full h-full object-cover" />
       </div>
-      <div id="mugshotPreviewTitle" class="text-base font-bold text-white font-serif-title"></div>
+      <div id="mugshotPreviewTitle" class="text-sm sm:text-base font-bold text-white font-serif-title break-words"></div>
       <div class="flex gap-2 pt-1">
         <button id="mugshotPreviewRetakeBtn" onclick="closeMugshotPreviewModal(); openMugshotModal();" class="hidden flex-1 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white">
           📸 Retake My Mugshot
@@ -173,8 +173,8 @@
   </div>
 
   <!-- VISUAL WALKTHROUGH GUIDE MODAL (FLIP7 STYLE) -->
-  <div id="appOverviewModal" onclick="if(event.target === this) closeAppOverviewModal()" class="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md hidden p-3 md:p-6">
-    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-2xl w-full p-5 md:p-6 shadow-2xl text-left h-[540px] max-h-[92vh] flex flex-col justify-between">
+  <div id="appOverviewModal" onclick="if(event.target === this) closeAppOverviewModal()" class="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md hidden p-2.5 sm:p-4 md:p-6">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-2xl w-full p-3.5 sm:p-5 md:p-6 shadow-2xl text-left h-[540px] max-h-[92vh] flex flex-col justify-between">
       <div class="flex items-center justify-between pb-2.5 border-b border-slate-700 shrink-0">
         <div class="flex items-center gap-2">
           <span class="text-xs font-mono-code uppercase tracking-wider text-indigo-300 font-bold">🕵️ Quick Guide</span>
@@ -4855,13 +4855,13 @@ function renderHomeLauncher() {
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <!-- JOIN ON PHONE CARD (Placed first visually if guest scanned QR code!) -->
-        <div class="${highlightJoin ? 'order-1 ring-2 ring-indigo-500' : 'order-2'} bg-slate-900/90 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between shadow-xl">
+        <div class="${highlightJoin ? 'order-1 ring-2 ring-indigo-500' : 'order-2'} bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-6 flex flex-col justify-between shadow-xl">
           <div>
-            <div class="flex items-center justify-between mb-3">
+            <div class="flex flex-wrap items-center justify-between gap-1.5 mb-3">
               <span class="text-xs font-mono-code uppercase px-2.5 py-1 rounded bg-indigo-950 text-indigo-300 border border-indigo-800">Player Phones</span>
-              <span class="text-xs text-slate-400">Dossier + Mugshot + Corkboard</span>
+              <span class="text-[11px] sm:text-xs text-slate-400">Dossier + Mugshot + Corkboard</span>
             </div>
-            <h2 class="text-2xl font-bold text-white mb-2">Join an Active Room</h2>
+            <h2 class="text-xl sm:text-2xl font-bold text-white mb-2">Join an Active Room</h2>
             <p class="text-xs text-slate-400 mb-3 leading-relaxed">
               Enter the 4-letter Room Code shown on the TV screen and snap an optional Noir Mugshot for the Suspect Board.
             </p>
@@ -4869,23 +4869,23 @@ function renderHomeLauncher() {
               <div class="grid grid-cols-2 gap-2.5">
                 <div>
                   <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">Room Code</label>
-                  <input id="joinRoomCodeInput" type="text" maxlength="6" value="${escapeHtml(appState.roomCode || '')}" placeholder="e.g. K9X4" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-base font-mono-code uppercase tracking-widest text-indigo-300 focus:outline-none focus:border-indigo-500" />
+                  <input id="joinRoomCodeInput" type="text" maxlength="6" value="${escapeHtml(appState.roomCode || '')}" placeholder="e.g. K9X4" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 sm:p-3 text-base font-mono-code uppercase tracking-widest text-indigo-300 focus:outline-none focus:border-indigo-500" />
                 </div>
                 <div>
                   <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">First Name</label>
-                  <input id="joinPlayerNameInput" type="text" maxlength="20" value="${escapeHtml(appState.playerName || '')}" placeholder="Your name" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500" />
+                  <input id="joinPlayerNameInput" type="text" maxlength="20" value="${escapeHtml(appState.playerName || '')}" placeholder="Your name" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 sm:p-3 text-sm text-white focus:outline-none focus:border-indigo-500" />
                 </div>
               </div>
 
-              <div class="flex items-center justify-between bg-slate-950 border border-slate-800 rounded-xl p-2.5">
-                <div class="flex items-center gap-2.5">
+              <div class="flex items-center justify-between gap-2 bg-slate-950 border border-slate-800 rounded-xl p-2.5">
+                <div class="flex items-center gap-2.5 min-w-0 flex-1">
                   ${renderMugshotAvatar({ name: appState.playerName || "ME", mugshot: appState.playerMugshot }, false, "w-10 h-10")}
-                  <div>
-                    <div class="text-xs font-bold text-slate-200">Noir Suspect Mugshot</div>
-                    <div class="text-[11px] text-slate-400">${appState.playerMugshot ? "Tap photo to enlarge ✓" : "Optional 1-tap camera selfie"}</div>
+                  <div class="min-w-0 flex-1">
+                    <div class="text-xs font-bold text-slate-200 leading-snug">Noir Suspect Mugshot</div>
+                    <div class="text-[11px] text-slate-400 leading-snug">${appState.playerMugshot ? "Tap photo to enlarge ✓" : "Optional 1-tap camera selfie"}</div>
                   </div>
                 </div>
-                <button type="button" onclick="openMugshotModal()" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-slate-700">
+                <button type="button" onclick="openMugshotModal()" class="shrink-0 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-slate-700">
                   📸 ${appState.playerMugshot ? "Retake" : "Snap Photo"}
                 </button>
               </div>
@@ -4902,18 +4902,18 @@ function renderHomeLauncher() {
         </div>
 
         <!-- HOST NEW PARTY CARD -->
-        <div class="${highlightJoin ? 'order-2' : 'order-1'} bg-slate-900/90 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between shadow-xl">
+        <div class="${highlightJoin ? 'order-2' : 'order-1'} bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-6 flex flex-col justify-between shadow-xl">
           <div>
-            <div class="flex items-center justify-between mb-3">
+            <div class="flex flex-wrap items-center justify-between gap-1.5 mb-3">
               <span class="text-xs font-mono-code uppercase px-2.5 py-1 rounded bg-emerald-950 text-emerald-300 border border-emerald-800">Big Screen or Host</span>
               
             </div>
-            <h2 class="text-2xl font-bold text-white mb-2">Host a New Mystery Party</h2>
+            <h2 class="text-xl sm:text-2xl font-bold text-white mb-2">Host a New Mystery Party</h2>
             <p class="text-xs text-slate-400 mb-4 leading-relaxed">
               Select any of the <strong>${totalPacks} mystery cartridges</strong> below. Clicking <strong>Launch TV Display</strong> unlocks Smart TV Cloud-TTS voice, themed background ambiance, and QR code join.
             </p>
             <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Choose Mystery Cartridge (1–${totalPacks}):</label>
-            <select id="launchMysterySelect" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm text-white whitespace-normal break-words focus:outline-none focus:border-emerald-500 mb-5">
+            <select id="launchMysterySelect" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 sm:p-3 text-xs sm:text-sm text-white focus:outline-none focus:border-emerald-500 mb-5">
               ${packOptions}
             </select>
           </div>
@@ -4965,7 +4965,7 @@ function renderAwardsBanner(s, pack) {
     <div class="space-y-2">
       <div class="bg-emerald-950/40 border border-emerald-600/70 rounded-xl p-3">
         <div class="text-xs font-mono-code uppercase text-emerald-300 font-bold">🏆 Master Sleuths (Correctly Caught the Killer)</div>
-        <div class="text-sm font-bold text-white mt-0.5 leading-snug">
+        <div class="text-sm font-bold text-white mt-0.5 leading-snug break-words">
           ${awards.sleuths.length > 0 ? escapeHtml(awards.sleuths.join(", ")) : "Nobody Caught the Killer — The Killer Escaped!"}
         </div>
       </div>
@@ -4973,11 +4973,11 @@ function renderAwardsBanner(s, pack) {
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <div class="bg-amber-950/30 border border-amber-700/60 rounded-xl p-2.5">
             <div class="text-[10px] font-mono-code uppercase text-amber-300 font-bold">🎭 Best Roleplayer / Costume</div>
-            <div class="text-xs font-bold text-white mt-0.5 truncate">${awards.roleplayers.length > 0 ? escapeHtml(awards.roleplayers.join(", ")) : "No votes cast"}</div>
+            <div class="text-xs font-bold text-white mt-0.5 leading-snug break-words">${awards.roleplayers.length > 0 ? escapeHtml(awards.roleplayers.join(", ")) : "No votes cast"}</div>
           </div>
           <div class="bg-fuchsia-950/30 border border-fuchsia-700/60 rounded-xl p-2.5">
             <div class="text-[10px] font-mono-code uppercase text-fuchsia-300 font-bold">🤥 Best Poker Face</div>
-            <div class="text-xs font-bold text-white mt-0.5 truncate">${awards.pokerfaces.length > 0 ? escapeHtml(awards.pokerfaces.join(", ")) : "No votes cast"}</div>
+            <div class="text-xs font-bold text-white mt-0.5 leading-snug break-words">${awards.pokerfaces.length > 0 ? escapeHtml(awards.pokerfaces.join(", ")) : "No votes cast"}</div>
           </div>
         </div>
       ` : ""}
@@ -5460,7 +5460,7 @@ function renderMobileCorkboard(s, pack, activeSuspects) {
       <button type="button" onclick="toggleCorkboardDrawer()" class="w-full px-3.5 py-3 flex items-center justify-between gap-2 bg-amber-950/30 hover:bg-amber-950/50 transition text-left">
         <div class="flex items-center gap-2 min-w-0">
           <span class="text-sm shrink-0">📌</span>
-          <span class="text-xs font-mono-code uppercase font-bold text-amber-300 truncate">Red-String Detective Corkboard</span>
+          <span class="text-[11px] sm:text-xs font-mono-code uppercase font-bold text-amber-300 leading-snug">Red-String Detective Corkboard</span>
         </div>
         <span class="text-[11px] font-mono-code text-amber-200 shrink-0">${appState.corkboardOpen ? '▲ Hide' : '▼ Open'}</span>
       </button>
@@ -5587,8 +5587,8 @@ function renderMobilePlayerView() {
             <button type="button" onclick="openMugshotModal()" class="text-[11px] bg-slate-800 hover:bg-slate-700 text-indigo-300 px-2 py-0.5 rounded border border-slate-700">
               📸 Mugshot
             </button>
-            <button type="button" onclick="promptEditPlayerName()" title="Tap to edit your name" class="flex items-center gap-1 text-xs font-mono-code bg-slate-950 hover:bg-slate-800 text-white px-2 py-0.5 rounded border border-slate-700 transition max-w-[140px]">
-              <strong class="truncate">${escapeHtml(appState.playerName)}</strong>
+            <button type="button" onclick="promptEditPlayerName()" title="Tap to edit your name" class="flex items-center gap-1 text-xs font-mono-code bg-slate-950 hover:bg-slate-800 text-white px-2 py-0.5 rounded border border-slate-700 transition">
+              <strong class="break-words">${escapeHtml(appState.playerName)}</strong>
               <span class="text-[10px] text-amber-400 shrink-0">✏️</span>
             </button>
           </div>
@@ -5608,8 +5608,8 @@ function renderMobilePlayerView() {
             <div class="text-left bg-slate-950/90 border border-slate-800 rounded-xl p-3 space-y-2">
               <div class="text-[11px] font-mono-code uppercase text-indigo-300 font-bold">📖 Tonight's Setting</div>
               <p class="text-xs text-slate-300 leading-relaxed">"${escapeHtml(pack.settingIntro)}"</p>
-              <button type="button" onclick="toggleLobbyPreview()" class="w-full py-2 px-3 rounded-lg text-xs font-mono-code font-bold bg-slate-900 hover:bg-slate-800 text-amber-300 border border-slate-800 flex items-center justify-between gap-2 transition text-left">
-                <span class="truncate">🎭 Cast & Costume Guide (${pack.characters.length} Roles)</span>
+              <button type="button" onclick="toggleLobbyPreview()" class="w-full py-2 px-3 rounded-lg text-[11px] sm:text-xs font-mono-code font-bold bg-slate-900 hover:bg-slate-800 text-amber-300 border border-slate-800 flex items-center justify-between gap-2 transition text-left">
+                <span class="min-w-0 leading-snug">🎭 Cast & Costume Guide (${pack.characters.length} Roles)</span>
                 <span class="shrink-0">${appState.lobbyPreviewOpen ? '▲ Hide' : '▼ Preview'}</span>
               </button>
               ${appState.lobbyPreviewOpen ? `
@@ -5962,8 +5962,8 @@ function renderMobilePlayerView() {
             <span class="text-[11px] text-slate-400 shrink-0">Round ${s.round}/4</span>
           </div>
 
-          <button type="button" onclick="togglePhoneSpeakerMode()" class="w-full py-2 px-3 rounded-xl text-xs font-mono-code font-bold border flex items-center justify-between gap-2 text-left transition ${appState.phoneSpeakerEnabled ? 'bg-emerald-950/80 border-emerald-500 text-emerald-300' : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'}">
-            <span class="min-w-0 truncate">🔊 Use My Phone as TV Speaker</span>
+          <button type="button" onclick="togglePhoneSpeakerMode()" class="w-full py-2 px-3 rounded-xl text-[11px] sm:text-xs font-mono-code font-bold border flex items-center justify-between gap-2 text-left transition ${appState.phoneSpeakerEnabled ? 'bg-emerald-950/80 border-emerald-500 text-emerald-300' : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'}">
+            <span class="min-w-0 leading-snug">🔊 Use My Phone as TV Speaker</span>
             <span class="shrink-0 px-2 py-0.5 rounded text-[10px] ${appState.phoneSpeakerEnabled ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'}">${appState.phoneSpeakerEnabled ? 'ON' : 'OFF'}</span>
           </button>
 
@@ -5981,7 +5981,7 @@ function renderMobilePlayerView() {
           ${s.round === 0 ? `
             <div class="space-y-2.5">
               <label class="block text-[11px] text-slate-400">Switch Mystery Cartridge (${packList.length} Available):</label>
-              <select onchange="changeRoomMystery(this.value)" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white whitespace-normal break-words">
+              <select onchange="changeRoomMystery(this.value)" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2 text-[11px] sm:text-xs text-white">
                 ${packList.map((m, idx) => `<option value="${m.id}" ${m.id === s.mysteryId ? 'selected' : ''}>${idx + 1}. ${escapeHtml(m.title)}</option>`).join("")}
               </select>
               <div class="grid grid-cols-1 gap-2">
@@ -6126,12 +6126,12 @@ const guideSteps = [
     mockup: `
       <div class="space-y-2.5">
         <div class="guide-highlight bg-amber-950/80 border-2 border-amber-400 rounded-xl p-3 space-y-2">
-          <div class="flex items-center justify-between">
-            <div>
-              <div class="text-[10px] font-mono-code uppercase font-extrabold text-amber-300">🔦 60-SECOND HOT SEAT INTERROGATION SPOTLIGHT</div>
-              <div class="text-xs font-extrabold text-white">Dr. Aris Thorne (Chief Medical Officer)</div>
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0 flex-1">
+              <div class="text-[10px] font-mono-code uppercase font-extrabold text-amber-300 leading-snug">🔦 60s HOT SEAT INTERROGATION</div>
+              <div class="text-xs font-extrabold text-white leading-snug mt-0.5 break-words">Dr. Aris Thorne (Chief Medical Officer)</div>
             </div>
-            <span class="text-base font-mono-code font-extrabold px-2.5 py-0.5 rounded-lg bg-black/70 text-amber-300 border border-amber-400">48s</span>
+            <span class="shrink-0 text-sm sm:text-base font-mono-code font-extrabold px-2 py-0.5 rounded-lg bg-black/70 text-amber-300 border border-amber-400">48s</span>
           </div>
           <div class="text-[11px] bg-slate-950/90 border border-amber-700/60 rounded-lg p-2 text-slate-200">
             <strong class="text-cyan-300 font-mono-code uppercase">Official Alibi:</strong> "I was in Hydroponics Bay 2 checking oxygen scrubbers..."
@@ -6149,14 +6149,14 @@ const guideSteps = [
     desc: "Corner suspects in person and ask for their 2-digit Pat-Down PIN to privately inspect their belongings on your phone, and track suspects on your Red-String Corkboard.",
     mockup: `
       <div class="space-y-2">
-        <div class="bg-slate-950 border border-indigo-700/80 p-2.5 rounded-xl flex items-center justify-between gap-2 text-xs">
+        <div class="bg-slate-950 border border-indigo-700/80 p-2.5 rounded-xl flex flex-wrap items-center justify-between gap-2 text-xs">
           <span class="font-mono-code text-indigo-300 font-bold">🕵️ 1-on-1 PIN Pat-Down:</span>
           <div class="flex items-center gap-1.5">
             <span class="px-2.5 py-1 bg-slate-900 border border-slate-700 rounded font-mono-code text-amber-300 font-bold">42</span>
             <span class="px-2.5 py-1 bg-indigo-600 text-white rounded font-bold">🔎 Unlock</span>
           </div>
         </div>
-        <div class="guide-highlight bg-rose-950/60 border border-rose-500 p-2.5 rounded-xl flex items-center justify-between text-xs">
+        <div class="guide-highlight bg-rose-950/60 border border-rose-500 p-2.5 rounded-xl flex flex-wrap items-center justify-between gap-1 text-xs">
           <span class="font-mono-code font-bold text-rose-200">🔥 2 suspects are highly suspicious</span>
           <span class="text-[10px] font-mono-code text-rose-300">3+ Prime Targets</span>
         </div>
@@ -6174,11 +6174,11 @@ const guideSteps = [
     mockup: `
       <div class="space-y-2">
         <div class="guide-highlight bg-slate-900 border border-amber-500/80 p-3 rounded-xl space-y-2">
-          <div class="flex items-center justify-between text-xs">
+          <div class="flex flex-wrap items-center justify-between gap-1 text-xs">
             <span class="font-mono-code font-bold text-amber-300 uppercase">🏆 Act IV Reckoning & Awards</span>
             <span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-700 text-[10px] font-mono-code">Case Solved</span>
           </div>
-          <div class="grid grid-cols-3 gap-1.5 text-[10px]">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-1.5 text-[10px]">
             <div class="bg-slate-950 border border-emerald-700/60 rounded p-1.5 text-emerald-300 font-bold">🕵️ Master Sleuths</div>
             <div class="bg-slate-950 border border-amber-700/60 rounded p-1.5 text-amber-300 font-bold">🎭 Best Roleplayer</div>
             <div class="bg-slate-950 border border-fuchsia-700/60 rounded p-1.5 text-fuchsia-300 font-bold">🤥 Best Poker Face</div>
