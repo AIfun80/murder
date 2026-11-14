@@ -2356,7 +2356,7 @@ function getEffectivePack(mysteryId, variantIdx = 0) {
 }
 
 /* ============================================================================
-   3. HYBRID CLOUD-TTS + CACHED AMBIENT SOUNDSCAPE ENGINE (WITH WATCHDOG)
+   3. PRERECORDED MP3 + NATIVE SPEECHSYNTHESIS & AMBIENT SOUNDSCAPE ENGINE
    ============================================================================ */
 class SoundEngine {
   constructor() {
@@ -2372,12 +2372,8 @@ class SoundEngine {
     this.usingMp3Ambient = false;
     this.sfxAudioEl = new Audio();
     this.noiseCache = {};
-    this.forceCloudTTS = true;
     this.audioPlayer = new Audio();
-    this.audioPlayer.referrerPolicy = "no-referrer";
-    this.ttsQueue = [];
     this.isSpeakingCloud = false;
-    this.ttsWatchdog = null;
     this.escalationPhase = "NORMAL"; // "NORMAL" | "TENSION" | "PANIC"
     this.pulseInterval = null;
     this.isSabotageMuffled = false;
@@ -2513,15 +2509,10 @@ class SoundEngine {
 
   stopAll() {
     this.stopAmbient();
-    if (this.ttsWatchdog) {
-      clearTimeout(this.ttsWatchdog);
-      this.ttsWatchdog = null;
-    }
     if (this.pendingBulletinTimeout) {
       clearTimeout(this.pendingBulletinTimeout);
       this.pendingBulletinTimeout = null;
     }
-    this.ttsQueue = [];
     this.isSpeakingCloud = false;
     this.isPlayingMajorVO = false;
     [this.audioPlayer, this.sfxAudioEl].forEach(el => {
@@ -2636,81 +2627,29 @@ class SoundEngine {
     }, 2200);
   }
 
-  chunkText(text, maxLen = 165) {
-    const cleanText = String(text)
+  fallbackNativeSpeech(text) {
+    if (!("speechSynthesis" in window)) return;
+    const cleanText = String(text || "")
       .replace(/—/g, ", ")
       .replace(/€/g, " Euros ")
       .replace(/\s+/g, " ")
       .trim();
-    const sentences = cleanText.replace(/([.!?])\s+/g, "$1|").split("|");
-    const chunks = [];
-    let current = "";
-    sentences.forEach(s => {
-      if ((current + " " + s).trim().length <= maxLen) {
-        current = (current + " " + s).trim();
-      } else {
-        if (current) chunks.push(current);
-        if (s.length <= maxLen) {
-          current = s;
-        } else {
-          const words = s.split(" ");
-          current = "";
-          words.forEach(w => {
-            if ((current + " " + w).trim().length <= maxLen) {
-              current = (current + " " + w).trim();
-            } else {
-              if (current) chunks.push(current);
-              current = w;
-            }
-          });
-        }
-      }
-    });
-    if (current) chunks.push(current);
-    return chunks;
-  }
-
-  playNextCloudChunk() {
-    if (this.ttsWatchdog) {
-      clearTimeout(this.ttsWatchdog);
-      this.ttsWatchdog = null;
-    }
-    if (this.ttsQueue.length === 0) {
-      this.isSpeakingCloud = false;
-      setTimeout(() => this.duckAmbient(false), 500);
-      return;
-    }
-    this.isSpeakingCloud = true;
-    this.duckAmbient(true);
-    const nextChunk = this.ttsQueue.shift();
-    const encoded = encodeURIComponent(nextChunk);
-
-    this.ttsWatchdog = setTimeout(() => {
-      this.playNextCloudChunk();
-    }, 8500);
-
-    this.audioPlayer.src = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=en&q=${encoded}`;
-    this.audioPlayer.onended = () => this.playNextCloudChunk();
-    this.audioPlayer.onerror = () => {
-      this.fallbackNativeSpeech(nextChunk);
-      this.playNextCloudChunk();
-    };
-    this.audioPlayer.play().catch(() => {
-      this.fallbackNativeSpeech(nextChunk);
-      this.playNextCloudChunk();
-    });
-  }
-
-  fallbackNativeSpeech(text) {
-    if (!("speechSynthesis" in window)) return;
+    if (!cleanText) return;
     try {
+      this.isSpeakingCloud = true;
       this.duckAmbient(true);
-      const utter = new SpeechSynthesisUtterance(text);
+      const utter = new SpeechSynthesisUtterance(cleanText);
       utter.rate = 0.94;
       utter.pitch = 0.85;
-      utter.onend = () => this.duckAmbient(false);
+      const finishSpeech = () => {
+        this.isSpeakingCloud = false;
+        this.duckAmbient(false);
+      };
+      utter.onend = finishSpeech;
+      utter.onerror = finishSpeech;
       window.speechSynthesis.speak(utter);
     } catch (e) {
+      this.isSpeakingCloud = false;
       this.duckAmbient(false);
     }
   }
@@ -2718,11 +2657,6 @@ class SoundEngine {
   speakBulletin(text, mp3Filename = null) {
     if (this.isMuted || (!text && !mp3Filename)) return;
     if (mp3Filename && isValidMp3Filename(mp3Filename)) {
-      if (this.ttsWatchdog) {
-        clearTimeout(this.ttsWatchdog);
-        this.ttsWatchdog = null;
-      }
-      this.ttsQueue = [];
       this.isSpeakingCloud = true;
       this.isPlayingMajorVO = true;
       this.duckAmbient(true);
@@ -2750,15 +2684,10 @@ class SoundEngine {
       return;
     }
 
-    const nativeVoices = ("speechSynthesis" in window) ? window.speechSynthesis.getVoices() : [];
-    const shouldUseCloud = this.forceCloudTTS || nativeVoices.length === 0;
-    if (shouldUseCloud) {
-      this.ttsQueue = this.chunkText(text);
-      this.playNextCloudChunk();
-    } else {
-      if ("speechSynthesis" in window) window.speechSynthesis.cancel();
-      this.fallbackNativeSpeech(text);
+    if ("speechSynthesis" in window) {
+      try { window.speechSynthesis.cancel(); } catch (e) {}
     }
+    this.fallbackNativeSpeech(text);
   }
   // --- DYNAMIC AUDIO ESCALATION & BLACKOUT MUFFLE ---
   evaluateEscalation(remainingSeconds, isPaused, isBlackoutSabotage, round) {
