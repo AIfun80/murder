@@ -2874,8 +2874,32 @@ const HapticsEngine = {
    4. REAL-TIME SYNC ENGINE, MUGSHOT STUDIO & PRIVATE CORKBOARD STORAGE
    ============================================================================ */
 let isExplicitExit = false;
-const storedPlayerId = localStorage.getItem("mm_player_id");
-const storedMugshot = localStorage.getItem("mm_player_mugshot") || "";
+function safeStorageGet(key, fallback = null) {
+  try {
+    const val = localStorage.getItem(key);
+    return val === null ? fallback : val;
+  } catch (e) {
+    return fallback;
+  }
+}
+function safeStorageSet(key, value) {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+function safeStorageRemove(key) {
+  try {
+    localStorage.removeItem(key);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+const storedPlayerId = safeStorageGet("mm_player_id");
+const storedMugshot = safeStorageGet("mm_player_mugshot", "");
 let storedHostCodes = {};
 try {
   const rawHostCodes = localStorage.getItem("mm_host_codes");
@@ -2888,21 +2912,22 @@ let appState = {
   qrScannedRoom: false,
   authUid: null,
   playerId: (storedPlayerId && isValidId(storedPlayerId)) ? storedPlayerId : ("p_" + secureRandomChars(10)),
-  playerName: (localStorage.getItem("mm_player_name") || "").slice(0, 24),
+  playerName: (safeStorageGet("mm_player_name", "")).slice(0, 24),
   playerMugshot: isValidMugshotDataUrl(storedMugshot) ? storedMugshot : "",
   localHostCodes: storedHostCodes,
   corkboardOpen: false,
   lobbyPreviewOpen: false,
   tvControlsOpen: false,
-  tvCompactMode: localStorage.getItem("mm_tv_compact") === "true",
+  tvCompactMode: safeStorageGet("mm_tv_compact") === "true",
   phoneSpeakerEnabled: false,
   preferredVariant: "auto",
   sessionData: null,
   lastPlayedEventId: null,
   lastPauseState: false,
-  lastDecoyCount: 0
+  lastDecoyCount: 0,
+  authTokenVerified: false
 };
-localStorage.setItem("mm_player_id", appState.playerId);
+safeStorageSet("mm_player_id", appState.playerId);
 
 let firebaseDb = null;
 let firebaseAuth = null;
@@ -3550,33 +3575,68 @@ function ensureFirebaseAuth(configToUse) {
     firebaseAuth = firebase.auth();
     if (!authReadyPromise) {
       authReadyPromise = new Promise((resolve) => {
+        let settled = false;
+        let retriedAnon = false;
+        let unsub = null;
+        const completeWithUser = (u) => {
+          if (!u || !u.uid) return;
+          const finish = (token) => {
+            if (settled) return;
+            settled = true;
+            appState.authUid = u.uid;
+            if (token) appState.cachedAuthToken = token;
+            appState.authTokenVerified = true;
+            if (isValidId(u.uid) && !appState.sessionData) {
+              appState.playerId = u.uid;
+              safeStorageSet("mm_player_id", u.uid);
+            }
+            if (unsub) { try { unsub(); } catch (e) {} }
+            resolve(u);
+          };
+          if (typeof u.getIdToken === "function") {
+            u.getIdToken().then(finish).catch(() => {
+              if (!retriedAnon) {
+                retriedAnon = true;
+                firebaseAuth.signInAnonymously().catch((err) => {
+                  console.warn("Firebase Anonymous Auth retry unavailable:", err && err.message ? err.message : err);
+                  if (!settled) { settled = true; resolve(null); }
+                });
+              } else {
+                finish(null);
+              }
+            });
+          } else {
+            finish(null);
+          }
+        };
         try {
           firebaseAuth.onIdTokenChanged((user) => {
             if (user && typeof user.getIdToken === "function") {
-              user.getIdToken().then((t) => { appState.cachedAuthToken = t; }).catch(() => {});
+              user.getIdToken().then((t) => {
+                appState.cachedAuthToken = t;
+                appState.authTokenVerified = true;
+              }).catch(() => {});
             } else {
               appState.cachedAuthToken = null;
+              appState.authTokenVerified = false;
             }
           });
         } catch (e) {}
-        const unsub = firebaseAuth.onAuthStateChanged((user) => {
+        unsub = firebaseAuth.onAuthStateChanged((user) => {
           if (user && user.uid) {
-            appState.authUid = user.uid;
-            if (isValidId(user.uid) && !appState.sessionData) {
-              appState.playerId = user.uid;
-              try { localStorage.setItem("mm_player_id", user.uid); } catch (e) {}
-            }
-            unsub();
-            resolve(user);
+            completeWithUser(user);
           }
         });
-        if (syncPlayerIdToAuthUid(false)) {
-          resolve(firebaseAuth.currentUser);
+        if (syncPlayerIdToAuthUid(false) && firebaseAuth.currentUser) {
+          completeWithUser(firebaseAuth.currentUser);
           return;
         }
         firebaseAuth.signInAnonymously().catch((err) => {
           console.warn("Firebase Anonymous Auth unavailable:", err && err.message ? err.message : err);
-          resolve(null);
+          if (!settled) {
+            settled = true;
+            resolve(null);
+          }
         });
       });
     }
@@ -3590,8 +3650,8 @@ function ensureFirebaseAuth(configToUse) {
 }
 
 function initSyncBackend() {
-  const forceLocal = localStorage.getItem("mm_force_local") === "true";
-  const savedConfigRaw = localStorage.getItem("mm_firebase_config");
+  const forceLocal = safeStorageGet("mm_force_local") === "true";
+  const savedConfigRaw = safeStorageGet("mm_firebase_config");
   let configToUse = null;
 
   if (!forceLocal) {
@@ -3750,32 +3810,65 @@ function subscribeToRoom(code, onFirstLoadCallback) {
   } catch (e) {}
 
   let firstCallbackFired = false;
+  let retriedAuth = false;
 
   if (firebaseDb) {
-    if (roomRef) roomRef.off();
-    roomRef = firebaseDb.ref(`mystery_rooms/${appState.roomCode}`);
-    roomRef.on("value", (snap) => {
-      const val = snap.val();
-      if (val) {
-        handleIncomingSessionUpdate(val);
-      }
-      if (!firstCallbackFired) {
-        firstCallbackFired = true;
-        if (onFirstLoadCallback) onFirstLoadCallback(val);
-      }
-    }, (err) => {
-      console.warn("Firebase room subscription error:", err);
-      if (!firstCallbackFired) {
-        firstCallbackFired = true;
-        resetToHome();
-        alert("Could not connect to room (permission denied or network error). Please refresh and try again.");
-      }
-    });
+    const attachRoomListener = () => {
+      if (roomRef) roomRef.off();
+      roomRef = firebaseDb.ref(`mystery_rooms/${appState.roomCode}`);
+      roomRef.on("value", (snap) => {
+        const val = snap.val();
+        if (val) {
+          handleIncomingSessionUpdate(val);
+        }
+        if (!firstCallbackFired) {
+          firstCallbackFired = true;
+          if (onFirstLoadCallback) onFirstLoadCallback(val);
+        }
+      }, (err) => {
+        console.warn("Firebase room subscription error:", err);
+        const errCode = (err && (err.code || err.message)) ? String(err.code || err.message) : "";
+        const isPermErr = /permission/i.test(errCode);
+        if (!firstCallbackFired && isPermErr && firebaseAuth && !retriedAuth) {
+          retriedAuth = true;
+          try { if (roomRef) roomRef.off(); } catch (e) {}
+          const refreshPromise = firebaseAuth.currentUser && typeof firebaseAuth.currentUser.getIdToken === "function"
+            ? firebaseAuth.currentUser.getIdToken(true).catch(() => firebaseAuth.signInAnonymously())
+            : firebaseAuth.signInAnonymously();
+          Promise.resolve(refreshPromise)
+            .then((res) => {
+              const user = firebaseAuth.currentUser || (res && res.user) || null;
+              if (user && user.uid) {
+                appState.authUid = user.uid;
+                appState.authTokenVerified = true;
+                if (isValidId(user.uid) && !appState.sessionData) {
+                  appState.playerId = user.uid;
+                  safeStorageSet("mm_player_id", user.uid);
+                }
+              }
+            })
+            .catch(() => {})
+            .finally(() => {
+              if (!firstCallbackFired && appState.roomCode === upperCode) {
+                setTimeout(attachRoomListener, 250);
+              }
+            });
+          return;
+        }
+        if (!firstCallbackFired) {
+          firstCallbackFired = true;
+          resetToHome();
+          const detail = errCode ? ` (${errCode})` : "";
+          alert(`Could not connect to room${detail}. Please refresh and try again.`);
+        }
+      });
+    };
+    attachRoomListener();
     if (appState.viewMode === "tv") {
       subscribeToHostSecret(appState.roomCode);
     }
   } else {
-    const raw = localStorage.getItem(`mm_room_${appState.roomCode}`);
+    const raw = safeStorageGet(`mm_room_${appState.roomCode}`);
     const parsed = raw ? JSON.parse(raw) : null;
     if (parsed) handleIncomingSessionUpdate(parsed);
     if (onFirstLoadCallback) onFirstLoadCallback(parsed);
@@ -3944,7 +4037,7 @@ function generateRoomCode() {
 }
 
 function createNewRoom(mysteryId, openAsMode) {
-  if (firebaseAuth && !firebaseAuth.currentUser && authReadyPromise) {
+  if (firebaseAuth && (!firebaseAuth.currentUser || !appState.authTokenVerified) && authReadyPromise) {
     authReadyPromise.then(() => {
       if (firebaseAuth && firebaseAuth.currentUser) {
         createNewRoom(mysteryId, openAsMode);
@@ -4035,7 +4128,7 @@ function joinExistingRoom(code, playerName, asMode) {
     try { localStorage.setItem("mm_player_name", appState.playerName); } catch (e) {}
   }
 
-  if (firebaseAuth && !firebaseAuth.currentUser && authReadyPromise) {
+  if (firebaseAuth && (!firebaseAuth.currentUser || !appState.authTokenVerified) && authReadyPromise) {
     authReadyPromise.then(() => {
       if (firebaseAuth && firebaseAuth.currentUser) {
         joinExistingRoom(cleanCode, playerName, asMode);
@@ -4051,10 +4144,8 @@ function joinExistingRoom(code, playerName, asMode) {
   isExplicitExit = false;
   requestScreenWakeLock();
   appState.viewMode = asMode;
-  try {
-    localStorage.setItem("mm_active_room", cleanCode);
-    localStorage.setItem("mm_active_mode", asMode);
-  } catch (e) {}
+  safeStorageSet("mm_active_room", cleanCode);
+  safeStorageSet("mm_active_mode", asMode);
   updateModeBadge();
 
   subscribeToRoom(cleanCode, (existingVal) => {
@@ -4066,14 +4157,15 @@ function joinExistingRoom(code, playerName, asMode) {
     if (asMode === "tv") {
       if (!existingVal.tvUid) {
         if (firebaseDb) {
-          firebaseDb.ref(`mystery_rooms/${cleanCode}/tvUid`).set(appState.playerId).catch(() => {});
+          firebaseDb.ref(`mystery_rooms/${cleanCode}/tvUid`).set(appState.playerId)
+            .then(() => subscribeToHostSecret(cleanCode))
+            .catch(() => {});
         } else {
           const copy = JSON.parse(JSON.stringify(existingVal));
           copy.tvUid = appState.playerId;
           writeRoomState(copy);
         }
-      }
-      if (firebaseDb) {
+      } else if (firebaseDb) {
         subscribeToHostSecret(cleanCode);
       }
     }
@@ -4131,8 +4223,9 @@ function registerPlayerInSession(pid, name) {
     const finishJoin = () => {
       if (!firebaseDb || !appState.roomCode) return;
       if (becomeHost) {
-        firebaseDb.ref(`mystery_rooms/${appState.roomCode}/hostUid`).set(pid).catch(() => {});
-        subscribeToHostSecret(appState.roomCode);
+        firebaseDb.ref(`mystery_rooms/${appState.roomCode}/hostUid`).set(pid)
+          .then(() => subscribeToHostSecret(appState.roomCode))
+          .catch(() => {});
       }
       if (!s || s.round === 0) {
         try { playerRef.onDisconnect().remove(); } catch (e) {}
@@ -4168,20 +4261,20 @@ function removePlayerFromLobby(roomCode, pid, sessionSnapshot) {
   const remainingPlayers = Object.values(players).filter(p => p && p.id !== pid);
 
   if (firebaseDb) {
+    const updates = {};
     if (wasHost) {
       const nextHostId = remainingPlayers.length > 0 ? remainingPlayers[0].id : null;
-      try {
-        firebaseDb.ref(`mystery_rooms/${roomCode}/hostUid`).set(nextHostId);
-        if (nextHostId) {
-          firebaseDb.ref(`mystery_rooms/${roomCode}/players/${nextHostId}/isHost`).set(true);
-        }
-      } catch (e) {}
+      updates.hostUid = nextHostId;
+      if (nextHostId) {
+        updates[`players/${nextHostId}/isHost`] = true;
+      }
     }
     const playerRef = firebaseDb.ref(`mystery_rooms/${roomCode}/players/${pid}`);
     try { playerRef.onDisconnect().cancel(); } catch (e) {}
-    playerRef.remove();
+    updates[`players/${pid}`] = null;
+    updates.updatedAt = Date.now();
     try {
-      firebaseDb.ref(`mystery_rooms/${roomCode}/updatedAt`).set(Date.now());
+      firebaseDb.ref(`mystery_rooms/${roomCode}`).update(updates).catch(() => {});
     } catch (e) {}
   } else if (s && s.players) {
     const copy = JSON.parse(JSON.stringify(s));
@@ -5810,7 +5903,7 @@ function handleStartPhoneHostNew() {
   const name = prompt("Enter your player name (You can host & play spoiler-free!):", appState.playerName || "Host");
   if (!name) return;
   appState.playerName = name.trim();
-  localStorage.setItem("mm_player_name", appState.playerName);
+  safeStorageSet("mm_player_name", appState.playerName);
   createNewRoom(sel, "player");
 }
 
@@ -7247,7 +7340,7 @@ function handleAppRootDelegatedClick(ev) {
    9. URL PARAMETER BOOTSTRAP
    ============================================================================ */
 window.addEventListener("DOMContentLoaded", () => {
-  localStorage.removeItem("mm_force_local");
+  safeStorageRemove("mm_force_local");
   const appRootEl = document.getElementById("appRoot");
   if (appRootEl && !appRootDelegatedBound && typeof appRootEl.addEventListener === "function") {
     appRootEl.addEventListener("click", handleAppRootDelegatedClick);
@@ -7255,10 +7348,10 @@ window.addEventListener("DOMContentLoaded", () => {
   }
   initSyncBackend();
   const params = new URLSearchParams(window.location.search);
-  const roomFromQR = params.get("room");
+  const roomFromQR = (params.get("room") || "").trim();
   const isTvReconnect = params.get("tv") === "1";
-  const savedActiveRoom = localStorage.getItem("mm_active_room");
-  const savedActiveMode = localStorage.getItem("mm_active_mode");
+  const savedActiveRoom = safeStorageGet("mm_active_room");
+  const savedActiveMode = safeStorageGet("mm_active_mode");
 
   if (roomFromQR && isTvReconnect) {
     joinExistingRoom(roomFromQR.toUpperCase(), "", "tv");
