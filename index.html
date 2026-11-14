@@ -5805,6 +5805,31 @@ function renderApp() {
   }
 }
 
+function isMobileDevice() {
+  try {
+    const ua = (typeof navigator !== "undefined" && navigator.userAgent) ? String(navigator.userAgent) : "";
+    if (/SmartTV|Tizen|Web0S|WebOS|BRAVIA|AFT|FireTV|Roku|CrKey|AppleTV|Viera|NetCast|Large Screen/i.test(ua)) {
+      return false;
+    }
+    if (typeof navigator !== "undefined" && navigator.userAgentData && typeof navigator.userAgentData.mobile === "boolean") {
+      if (navigator.userAgentData.mobile) return true;
+    }
+    if (/Android.*Mobile|iPhone|iPod|BlackBerry|IEMobile|Opera Mini|Windows Phone/i.test(ua)) {
+      return true;
+    }
+    const w = (typeof window !== "undefined" && typeof window.innerWidth === "number") ? window.innerWidth : 0;
+    if (w > 0 && w < 768) {
+      return true;
+    }
+    if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
+      if (window.matchMedia("(pointer: coarse) and (hover: none)").matches && (w === 0 || w <= 1024)) {
+        return true;
+      }
+    }
+  } catch (e) {}
+  return false;
+}
+
 function renderHomeLauncher() {
   const packList = Object.values(MYSTERY_PACKS);
   const totalPacks = packList.length;
@@ -5814,7 +5839,10 @@ function renderHomeLauncher() {
     <option value="${p.id}">${idx + 1}. ${escapeHtml(p.title)}</option>
   `).join("");
 
-  const highlightJoin = Boolean(appState.qrScannedRoom || appState.lastRoomCode || appState.roomCode);
+  const isMobile = isMobileDevice();
+  const hasRoomContext = Boolean(appState.qrScannedRoom || appState.lastRoomCode || appState.roomCode);
+  const placeJoinFirst = isMobile;
+  const highlightJoinRing = isMobile && hasRoomContext;
 
   return `
     <div class="max-w-5xl mx-auto w-full px-4 py-8 flex-1 flex flex-col justify-center">
@@ -5827,8 +5855,8 @@ function renderHomeLauncher() {
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <!-- JOIN ON PHONE CARD (Placed first visually if guest scanned QR code!) -->
-        <div class="${highlightJoin ? 'order-1 ring-2 ring-indigo-500' : 'order-2'} bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-6 flex flex-col justify-between shadow-xl">
+        <!-- JOIN ON PHONE CARD (Placed first on mobile devices; second on TV/computer screens) -->
+        <div class="${placeJoinFirst ? 'order-1' : 'order-2'} ${highlightJoinRing ? 'ring-2 ring-indigo-500' : ''} bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-6 flex flex-col justify-between shadow-xl">
           <div>
             <div class="flex flex-wrap items-center justify-between gap-1.5 mb-3">
               <span class="text-xs font-mono-code uppercase px-2.5 py-1 rounded bg-indigo-950 text-indigo-300 border border-indigo-800">Player Phones</span>
@@ -5874,8 +5902,8 @@ function renderHomeLauncher() {
           </div>
         </div>
 
-        <!-- HOST NEW PARTY CARD -->
-        <div class="${highlightJoin ? 'order-2' : 'order-1'} bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-6 flex flex-col justify-between shadow-xl">
+        <!-- HOST NEW PARTY CARD (Placed first on TV/computer screens; second on mobile devices) -->
+        <div class="${placeJoinFirst ? 'order-2' : 'order-1'} bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-6 flex flex-col justify-between shadow-xl">
           <div>
             <div class="flex flex-wrap items-center justify-between gap-1.5 mb-3">
               <span class="text-xs font-mono-code uppercase px-2.5 py-1 rounded bg-emerald-950 text-emerald-300 border border-emerald-800">Big Screen or Host</span>
