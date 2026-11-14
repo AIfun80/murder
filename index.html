@@ -10,6 +10,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <!-- Firebase Compat SDKs -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Cinzel:wght@600;800&family=JetBrains+Mono:wght@400;700&display=swap');
@@ -76,7 +77,152 @@
     .tvQrTarget img, .tvQrTarget canvas {
       width: 100% !important;
       height: 100% !important;
+      max-width: 100% !important;
+      max-height: 100% !important;
       object-fit: contain;
+      display: block;
+      margin: 0 auto;
+    }
+
+    /* TV Lobby QR code dynamic scaling based on viewport */
+    #tvQrContainer {
+      width: clamp(140px, 28vh, 280px);
+      height: clamp(140px, 28vh, 280px);
+      max-width: 100%;
+      max-height: 100%;
+      aspect-ratio: 1 / 1;
+    }
+
+    /* Compact TV Mode class rules */
+    body.tv-mode-locked.tv-compact #tvQrContainer {
+      width: clamp(110px, 22vh, 190px);
+      height: clamp(110px, 22vh, 190px);
+      padding: 0.5rem !important;
+    }
+    body.tv-mode-locked.tv-compact .tv-header-bar {
+      padding-top: 0.35rem !important;
+      padding-bottom: 0.35rem !important;
+    }
+    body.tv-mode-locked.tv-compact .tv-header-title {
+      font-size: 1.15rem !important;
+    }
+    body.tv-mode-locked.tv-compact .tv-lobby-card {
+      padding: 0.75rem 1rem !important;
+      gap: 1rem !important;
+    }
+    body.tv-mode-locked.tv-compact .tv-room-code-display {
+      font-size: 2.25rem !important;
+      line-height: 1.15 !important;
+    }
+    body.tv-mode-locked.tv-compact .tv-setting-intro {
+      font-size: 0.75rem !important;
+      -webkit-line-clamp: 2 !important;
+      line-clamp: 2 !important;
+      padding-top: 0.35rem !important;
+    }
+    body.tv-mode-locked.tv-compact .tv-lobby-footer {
+      padding: 0.5rem 0.75rem !important;
+    }
+    body.tv-mode-locked.tv-compact .tv-roster-card {
+      padding: 0.35rem 0.5rem !important;
+    }
+    body.tv-mode-locked.tv-compact .tv-roster-avatar {
+      width: 2rem !important;
+      height: 2rem !important;
+    }
+    body.tv-mode-locked.tv-compact .tv-roster-name {
+      font-size: 0.75rem !important;
+    }
+    body.tv-mode-locked.tv-compact .tv-clue-card {
+      padding: 0.35rem 0.5rem !important;
+    }
+    body.tv-mode-locked.tv-compact .tv-hotseat-box {
+      padding: 0.5rem 0.75rem !important;
+    }
+
+    /* Automatic responsive scaling for smaller TVs / resolutions (<= 820px height) */
+    @media (max-height: 820px) {
+      body.tv-mode-locked #tvQrContainer {
+        width: clamp(110px, 22vh, 190px);
+        height: clamp(110px, 22vh, 190px);
+        padding: 0.5rem !important;
+      }
+      body.tv-mode-locked .tv-header-bar {
+        padding-top: 0.35rem !important;
+        padding-bottom: 0.35rem !important;
+      }
+      body.tv-mode-locked .tv-header-title {
+        font-size: 1.15rem !important;
+      }
+      body.tv-mode-locked .tv-lobby-card {
+        padding: 0.75rem 1rem !important;
+        gap: 1rem !important;
+      }
+      body.tv-mode-locked .tv-room-code-display {
+        font-size: 2.25rem !important;
+        line-height: 1.15 !important;
+      }
+      body.tv-mode-locked .tv-setting-intro {
+        font-size: 0.75rem !important;
+        -webkit-line-clamp: 2 !important;
+        line-clamp: 2 !important;
+        padding-top: 0.35rem !important;
+      }
+      body.tv-mode-locked .tv-lobby-footer {
+        padding: 0.5rem 0.75rem !important;
+      }
+      body.tv-mode-locked .tv-roster-card {
+        padding: 0.35rem 0.5rem !important;
+      }
+      body.tv-mode-locked .tv-roster-avatar {
+        width: 2rem !important;
+        height: 2rem !important;
+      }
+      body.tv-mode-locked .tv-roster-name {
+        font-size: 0.75rem !important;
+      }
+      body.tv-mode-locked .tv-clue-card {
+        padding: 0.35rem 0.5rem !important;
+      }
+      body.tv-mode-locked .tv-hotseat-box {
+        padding: 0.5rem 0.75rem !important;
+      }
+    }
+
+    /* Extra tight viewports (<= 640px height e.g. 720p TV with big on-screen address bar or high zoom) */
+    @media (max-height: 640px) {
+      body.tv-mode-locked #tvQrContainer {
+        width: clamp(95px, 17vh, 140px);
+        height: clamp(95px, 17vh, 140px);
+        padding: 0.375rem !important;
+      }
+      body.tv-mode-locked .tv-room-code-display {
+        font-size: 1.875rem !important;
+      }
+      body.tv-mode-locked .tv-setting-intro {
+        -webkit-line-clamp: 2 !important;
+        line-clamp: 2 !important;
+        display: -webkit-box;
+      }
+      body.tv-mode-locked .tv-ticker-bar {
+        padding-top: 0.2rem !important;
+        padding-bottom: 0.2rem !important;
+      }
+      body.tv-mode-locked .tv-lobby-subtitle {
+        display: none !important;
+      }
+    }
+
+    /* Fallback graceful scroll for ultra-squished windows (< 480px height) */
+    @media (max-height: 480px) {
+      body.tv-mode-locked {
+        overflow-y: auto !important;
+      }
+      body.tv-mode-locked #appRoot {
+        height: auto !important;
+        max-height: none !important;
+        overflow-y: auto !important;
+      }
     }
 
     /* Guide step highlighter pulse (Flip7 style) */
@@ -218,6 +364,56 @@ const DEFAULT_FIREBASE_CONFIG = {
   databaseURL: "https://murder-mystery-e2d1f-default-rtdb.firebaseio.com/"
 };
 const ROOM_TTL_MS = 72 * 60 * 60 * 1000; // 72 Hours
+const ROOM_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+function secureRandomInt(maxExclusive) {
+  if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function" && maxExclusive > 0) {
+    const arr = new Uint32Array(1);
+    const limit = Math.floor(0x100000000 / maxExclusive) * maxExclusive;
+    while (true) {
+      crypto.getRandomValues(arr);
+      if (arr[0] < limit) return arr[0] % maxExclusive;
+    }
+  }
+  return Math.floor(Math.random() * maxExclusive);
+}
+
+function secureRandomChars(length, alphabet = "abcdefghijklmnopqrstuvwxyz0123456789") {
+  let out = "";
+  for (let i = 0; i < length; i++) {
+    out += alphabet[secureRandomInt(alphabet.length)];
+  }
+  return out;
+}
+
+function generateHostCode() {
+  return String(1000 + secureRandomInt(9000));
+}
+
+function isValidId(id) {
+  return typeof id === "string" && /^[a-zA-Z0-9_-]{1,64}$/.test(id);
+}
+
+function isValidRoomCode(code) {
+  return typeof code === "string" && /^[A-HJ-NP-Z2-9]{4,8}$/.test(code);
+}
+
+function isValidMugshotDataUrl(dataUrl) {
+  return typeof dataUrl === "string" && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]{1,120000}$/.test(dataUrl);
+}
+
+function isValidMp3Filename(filename) {
+  return typeof filename === "string" && /^[a-zA-Z0-9_.-]+\.mp3$/.test(filename) && !filename.includes("..");
+}
+
+function isValidFirebaseUrl(rawUrl) {
+  try {
+    const u = new URL(String(rawUrl || "").trim());
+    return u.protocol === "https:" && (u.hostname.endsWith(".firebaseio.com") || u.hostname.endsWith(".firebasedatabase.app"));
+  } catch (e) {
+    return false;
+  }
+}
 
 function escapeHtml(str) {
   if (str === null || str === undefined) return "";
@@ -229,14 +425,14 @@ function escapeHtml(str) {
     .replace(/'/g, "&#39;");
 }
 
-// Collision-free 2-digit PIN generator
+// Collision-free 2-digit PIN generator (CSPRNG-backed)
 function generateUniquePin(playersMap) {
   const used = new Set(Object.values(playersMap || {}).map(p => String(p.pinCode || "")));
   for (let attempt = 0; attempt < 120; attempt++) {
-    const candidate = String(Math.floor(11 + Math.random() * 88));
+    const candidate = String(11 + secureRandomInt(88));
     if (!used.has(candidate)) return candidate;
   }
-  return String(Math.floor(10 + Math.random() * 89));
+  return String(10 + secureRandomInt(89));
 }
 
 let wakeLockSentinel = null;
@@ -2498,7 +2694,7 @@ class SoundEngine {
 
   speakBulletin(text, mp3Filename = null) {
     if (this.isMuted || (!text && !mp3Filename)) return;
-    if (mp3Filename) {
+    if (mp3Filename && isValidMp3Filename(mp3Filename)) {
       if (this.ttsWatchdog) {
         clearTimeout(this.ttsWatchdog);
         this.ttsWatchdog = null;
@@ -2675,16 +2871,27 @@ const HapticsEngine = {
    4. REAL-TIME SYNC ENGINE, MUGSHOT STUDIO & PRIVATE CORKBOARD STORAGE
    ============================================================================ */
 let isExplicitExit = false;
+const storedPlayerId = localStorage.getItem("mm_player_id");
+const storedMugshot = localStorage.getItem("mm_player_mugshot") || "";
+let storedHostCodes = {};
+try {
+  const rawHostCodes = localStorage.getItem("mm_host_codes");
+  if (rawHostCodes) storedHostCodes = JSON.parse(rawHostCodes) || {};
+} catch (e) {}
+
 let appState = {
   viewMode: "home",
   roomCode: "",
   qrScannedRoom: false,
-  playerId: localStorage.getItem("mm_player_id") || ("p_" + Math.random().toString(36).substring(2, 9)),
-  playerName: localStorage.getItem("mm_player_name") || "",
-  playerMugshot: localStorage.getItem("mm_player_mugshot") || "",
+  authUid: null,
+  playerId: (storedPlayerId && isValidId(storedPlayerId)) ? storedPlayerId : ("p_" + secureRandomChars(10)),
+  playerName: (localStorage.getItem("mm_player_name") || "").slice(0, 24),
+  playerMugshot: isValidMugshotDataUrl(storedMugshot) ? storedMugshot : "",
+  localHostCodes: storedHostCodes,
   corkboardOpen: false,
   lobbyPreviewOpen: false,
   tvControlsOpen: false,
+  tvCompactMode: localStorage.getItem("mm_tv_compact") === "true",
   phoneSpeakerEnabled: false,
   preferredVariant: "auto",
   sessionData: null,
@@ -2695,7 +2902,12 @@ let appState = {
 localStorage.setItem("mm_player_id", appState.playerId);
 
 let firebaseDb = null;
+let firebaseAuth = null;
+let authReadyPromise = null;
+let activeDatabaseUrl = DEFAULT_FIREBASE_CONFIG.databaseURL;
 let roomRef = null;
+let secretHostRef = null;
+let appRootDelegatedBound = false;
 let midTwistLatch = false;
 let lastRenderedQRRoom = null;
 let cachedQRDataUrl = null;
@@ -2787,6 +2999,9 @@ function processImageToNoirBase64(sourceEl, srcW, srcH) {
 }
 
 function savePlayerMugshot(dataUrl) {
+  if (!isValidMugshotDataUrl(dataUrl)) {
+    return alert("Invalid or oversized image format. Please use a JPEG, PNG, or WebP photo.");
+  }
   appState.playerMugshot = dataUrl;
   try { localStorage.setItem("mm_player_mugshot", dataUrl); } catch (e) {}
   if (appState.sessionData && appState.sessionData.players && appState.sessionData.players[appState.playerId]) {
@@ -2852,13 +3067,21 @@ function handleMugshotFileUpload(ev) {
 }
 
 function handleMugshotClick(playerId, encodedName) {
+  if (!isValidId(playerId)) return;
   const s = appState.sessionData;
   const isMe = (playerId === appState.playerId);
   let pObj = (s && s.players && s.players[playerId]) ? s.players[playerId] : null;
-  const mugshot = (pObj && pObj.mugshot) || (isMe ? appState.playerMugshot : "");
-  const displayName = (pObj && pObj.name) || decodeURIComponent(encodedName || "") || "Suspect";
+  const rawMugshot = (pObj && pObj.mugshot) || (isMe ? appState.playerMugshot : "");
+  const mugshot = isValidMugshotDataUrl(rawMugshot) ? rawMugshot : "";
+  let safeFallbackName = "Suspect";
+  try {
+    safeFallbackName = decodeURIComponent(encodedName || "") || "Suspect";
+  } catch (e) {
+    safeFallbackName = String(encodedName || "Suspect");
+  }
+  const displayName = (pObj && pObj.name) || safeFallbackName;
 
-  if (!mugshot || !mugshot.startsWith("data:image")) {
+  if (!mugshot) {
     if (isMe) openMugshotModal();
     return;
   }
@@ -2907,13 +3130,13 @@ function promptEditPlayerName() {
 
 function renderMugshotAvatar(playerObj, isGhost = false, sizeClass = "w-10 h-10") {
   const initials = (playerObj && playerObj.name ? playerObj.name.trim().slice(0, 2) : "??").toUpperCase();
-  const hasPhoto = playerObj && playerObj.mugshot && playerObj.mugshot.startsWith("data:image");
-  const pid = (playerObj && playerObj.id) ? playerObj.id : appState.playerId;
-  const encodedName = encodeURIComponent((playerObj && playerObj.name) || "Suspect");
+  const hasPhoto = Boolean(playerObj && isValidMugshotDataUrl(playerObj.mugshot));
+  const pid = (playerObj && isValidId(playerObj.id)) ? playerObj.id : appState.playerId;
+  const safeName = (playerObj && playerObj.name) || "Suspect";
   const clickable = hasPhoto || pid === appState.playerId;
 
   return `
-    <div ${clickable ? `onclick="handleMugshotClick('${escapeHtml(pid)}', '${encodedName}')"` : ""}
+    <div ${clickable ? `data-action="view-mugshot" data-pid="${escapeHtml(pid)}" data-pname="${escapeHtml(safeName)}"` : ""}
          title="${hasPhoto ? 'Tap to enlarge mugshot' : 'Tap to take mugshot'}"
          class="relative ${sizeClass} rounded-xl overflow-hidden border ${isGhost ? 'border-rose-500' : 'border-slate-700'} bg-slate-900 shrink-0 flex items-center justify-center ${clickable ? 'cursor-pointer hover:ring-2 hover:ring-indigo-400 active:scale-95 transition' : ''}">
       ${hasPhoto
@@ -3006,6 +3229,64 @@ function toggleTvControls() {
   renderApp();
 }
 
+function isTvCompactActive() {
+  if (appState.sessionData && typeof appState.sessionData.tvCompactMode === "boolean") {
+    return appState.sessionData.tvCompactMode;
+  }
+  return Boolean(appState.tvCompactMode);
+}
+
+function applyTvCompactClasses() {
+  const isCompact = isTvCompactActive();
+  document.body.classList.toggle("tv-compact", appState.viewMode === "tv" && isCompact);
+}
+
+function toggleTvCompactMode() {
+  if (appState.sessionData && !isAuthorizedHostOrTV(appState.sessionData)) {
+    return alert("Only the Smart TV or Host can change TV screen layout.");
+  }
+  const next = !isTvCompactActive();
+  appState.tvCompactMode = next;
+  try {
+    localStorage.setItem("mm_tv_compact", next ? "true" : "false");
+  } catch (e) {}
+
+  if (firebaseDb && appState.roomCode) {
+    firebaseDb.ref(`mystery_rooms/${appState.roomCode}`).update({
+      tvCompactMode: next
+    }).catch(() => {});
+  } else if (appState.sessionData) {
+    const copy = JSON.parse(JSON.stringify(appState.sessionData));
+    copy.tvCompactMode = next;
+    writeRoomState(copy);
+  }
+  applyTvCompactClasses();
+  renderApp();
+}
+
+function toggleTvCompactFromHost(checked) {
+  if (appState.sessionData && !isAuthorizedHostOrTV(appState.sessionData)) {
+    return alert("Only the Host or Smart TV can change TV layout settings.");
+  }
+  const next = Boolean(checked);
+  appState.tvCompactMode = next;
+  try {
+    localStorage.setItem("mm_tv_compact", next ? "true" : "false");
+  } catch (e) {}
+
+  if (firebaseDb && appState.roomCode) {
+    firebaseDb.ref(`mystery_rooms/${appState.roomCode}`).update({
+      tvCompactMode: next
+    }).catch(() => {});
+  } else if (appState.sessionData) {
+    const copy = JSON.parse(JSON.stringify(appState.sessionData));
+    copy.tvCompactMode = next;
+    writeRoomState(copy);
+  }
+  applyTvCompactClasses();
+  renderApp();
+}
+
 function isAudioOutputActive() {
   return appState.viewMode === "tv" || Boolean(appState.phoneSpeakerEnabled);
 }
@@ -3042,6 +3323,9 @@ function getPacingConfig(presetKey) {
 
 function changePacingPreset(presetKey) {
   if (!appState.sessionData) return;
+  if (!isAuthorizedHostOrTV(appState.sessionData)) {
+    return alert("Only the Host or Smart TV can change game length.");
+  }
   const validKey = PACING_PRESETS[presetKey] ? presetKey : "standard";
   if (firebaseDb && appState.roomCode) {
     firebaseDb.ref(`mystery_rooms/${appState.roomCode}`).update({
@@ -3115,6 +3399,9 @@ function getHotSeatRemainingSec(session) {
 function triggerHotSeat(charId) {
   const s = appState.sessionData;
   if (!s || s.round !== 2) return;
+  if (!isAuthorizedGhostOrHost(s)) {
+    return alert("Only the Ghost Investigator or Host/TV can call a Hot Seat spotlight.");
+  }
   if (s.isPaused) {
     HapticsEngine.trigger("ERROR");
     return alert("Game is paused for Intermission!");
@@ -3156,6 +3443,9 @@ function triggerHotSeat(charId) {
 function clearHotSeat() {
   const s = appState.sessionData;
   if (!s) return;
+  if (!isAuthorizedGhostOrHost(s)) {
+    return alert("Only the Ghost Investigator or Host/TV can end the Hot Seat.");
+  }
   const now = Date.now();
   if (firebaseDb && appState.roomCode) {
     firebaseDb.ref(`mystery_rooms/${appState.roomCode}`).update({
@@ -3230,24 +3520,63 @@ function autoPurgeExpiredRooms() {
       }
     }
   } catch (e) {}
+  // Note: Client-side root listing/deletion on /mystery_rooms is intentionally disabled
+  // so strict Firebase RTDB Security Rules can block room enumeration & unauthorized deletes.
+}
 
-  if (!firebaseDb) return;
-  firebaseDb.ref("mystery_rooms").orderByChild("updatedAt").endAt(cutoff).once("value", (snap) => {
-    const rooms = snap.val();
-    if (!rooms) return;
-    const updates = {};
-    let expiredCount = 0;
-    Object.entries(rooms).forEach(([code, roomData]) => {
-      const lastActive = (roomData && (roomData.updatedAt || roomData.createdAt)) || 0;
-      if (lastActive > 0 && lastActive < cutoff) {
-        updates[code] = null;
-        expiredCount++;
-      }
-    });
-    if (expiredCount > 0) {
-      firebaseDb.ref("mystery_rooms").update(updates);
+function ensureFirebaseAuth(configToUse) {
+  if (!configToUse || !configToUse.apiKey || typeof firebase === "undefined" || typeof firebase.auth !== "function") {
+    firebaseAuth = null;
+    authReadyPromise = Promise.resolve(null);
+    return authReadyPromise;
+  }
+  try {
+    firebaseAuth = firebase.auth();
+    if (!authReadyPromise) {
+      authReadyPromise = new Promise((resolve) => {
+        try {
+          firebaseAuth.onIdTokenChanged((user) => {
+            if (user && typeof user.getIdToken === "function") {
+              user.getIdToken().then((t) => { appState.cachedAuthToken = t; }).catch(() => {});
+            } else {
+              appState.cachedAuthToken = null;
+            }
+          });
+        } catch (e) {}
+        const unsub = firebaseAuth.onAuthStateChanged((user) => {
+          if (user && user.uid) {
+            appState.authUid = user.uid;
+            if (isValidId(user.uid) && !appState.roomCode) {
+              appState.playerId = user.uid;
+              try { localStorage.setItem("mm_player_id", user.uid); } catch (e) {}
+            }
+            unsub();
+            resolve(user);
+          }
+        });
+        if (firebaseAuth.currentUser && firebaseAuth.currentUser.uid) {
+          const u = firebaseAuth.currentUser;
+          appState.authUid = u.uid;
+          if (isValidId(u.uid) && !appState.roomCode) {
+            appState.playerId = u.uid;
+            try { localStorage.setItem("mm_player_id", u.uid); } catch (e) {}
+          }
+          resolve(u);
+          return;
+        }
+        firebaseAuth.signInAnonymously().catch((err) => {
+          console.warn("Firebase Anonymous Auth unavailable:", err && err.message ? err.message : err);
+          resolve(null);
+        });
+      });
     }
-  }).catch(() => {});
+    return authReadyPromise;
+  } catch (err) {
+    console.warn("Firebase Auth init warning:", err);
+    firebaseAuth = null;
+    authReadyPromise = Promise.resolve(null);
+    return authReadyPromise;
+  }
 }
 
 function initSyncBackend() {
@@ -3259,13 +3588,15 @@ function initSyncBackend() {
     if (savedConfigRaw) {
       try {
         const parsed = JSON.parse(savedConfigRaw);
-        if (parsed && parsed.databaseURL) configToUse = parsed;
+        if (parsed && isValidFirebaseUrl(parsed.databaseURL)) {
+          configToUse = parsed;
+        }
       } catch (e) {
-        if (savedConfigRaw.startsWith("https://")) {
+        if (isValidFirebaseUrl(savedConfigRaw)) {
           configToUse = { databaseURL: savedConfigRaw.trim() };
         }
       }
-    } else if (DEFAULT_FIREBASE_CONFIG && DEFAULT_FIREBASE_CONFIG.databaseURL) {
+    } else if (DEFAULT_FIREBASE_CONFIG && isValidFirebaseUrl(DEFAULT_FIREBASE_CONFIG.databaseURL)) {
       configToUse = DEFAULT_FIREBASE_CONFIG;
     }
   }
@@ -3277,6 +3608,8 @@ function initSyncBackend() {
         firebase.initializeApp(configToUse);
       }
       firebaseDb = firebase.database();
+      activeDatabaseUrl = configToUse.databaseURL;
+      ensureFirebaseAuth(configToUse);
       dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400";
       dot.title = "Connected to Firebase Realtime DB (" + configToUse.databaseURL + ")";
       autoPurgeExpiredRooms();
@@ -3289,14 +3622,115 @@ function initSyncBackend() {
     roomRef.off();
     roomRef = null;
   }
+  if (secretHostRef) {
+    secretHostRef.off();
+    secretHostRef = null;
+  }
   firebaseDb = null;
+  firebaseAuth = null;
+  authReadyPromise = Promise.resolve(null);
   dot.className = "w-2.5 h-2.5 rounded-full bg-amber-400";
   dot.title = "Local Same-Device Tab Sync Mode";
   autoPurgeExpiredRooms();
 }
 
+function saveLocalHostCode(roomCode, hostCode) {
+  if (!isValidRoomCode(roomCode) || !/^\d{4}$/.test(String(hostCode || ""))) return;
+  appState.localHostCodes[roomCode] = String(hostCode);
+  try {
+    localStorage.setItem("mm_host_codes", JSON.stringify(appState.localHostCodes));
+  } catch (e) {}
+}
+
+function getVisibleHostCode(s) {
+  if (!s || !s.roomCode) return null;
+  if (appState.localHostCodes && /^\d{4}$/.test(String(appState.localHostCodes[s.roomCode] || ""))) {
+    return String(appState.localHostCodes[s.roomCode]);
+  }
+  if (/^\d{4}$/.test(String(s._offlineHostCode || ""))) {
+    return String(s._offlineHostCode);
+  }
+  return null;
+}
+
+function subscribeToHostSecret(code) {
+  if (!firebaseDb || !isValidRoomCode(code)) return;
+  if (secretHostRef) {
+    try { secretHostRef.off(); } catch (e) {}
+    secretHostRef = null;
+  }
+  secretHostRef = firebaseDb.ref(`room_host_secrets/${code}/hostCode`);
+  try {
+    secretHostRef.on("value", (snap) => {
+      const val = snap && typeof snap.val === "function" ? snap.val() : null;
+      if (typeof val === "string" && /^\d{4}$/.test(val)) {
+        saveLocalHostCode(code, val);
+        renderApp();
+      }
+    }, () => {});
+  } catch (e) {}
+}
+
+function isAuthorizedHostOrTV(s) {
+  if (!s) return false;
+  if (appState.viewMode === "tv") {
+    return !s.tvUid || s.tvUid === appState.playerId;
+  }
+  if (s.hostUid) return s.hostUid === appState.playerId;
+  const me = s.players && s.players[appState.playerId];
+  return Boolean(me && me.isHost);
+}
+
+function isAuthorizedKiller(s, packOpt) {
+  if (!s || !s.players) return false;
+  if (s.killerUid && s.killerUid === appState.playerId) return true;
+  const me = s.players[appState.playerId];
+  if (!me || !me.characterId) return false;
+  const pack = packOpt || getEffectivePack(s.mysteryId, s.variantIndex);
+  const myChar = pack && pack.characters ? pack.characters.find(c => c.id === me.characterId) : null;
+  return Boolean(myChar && myChar.role === "killer");
+}
+
+function isAuthorizedGhostOrHost(s, packOpt) {
+  if (!s) return false;
+  if (isAuthorizedHostOrTV(s)) return true;
+  if (s.ghostUid && s.ghostUid === appState.playerId) return true;
+  const me = s.players && s.players[appState.playerId];
+  if (!me || !me.characterId) return false;
+  const pack = packOpt || getEffectivePack(s.mysteryId, s.variantIndex);
+  const myChar = pack && pack.characters ? pack.characters.find(c => c.id === me.characterId) : null;
+  return Boolean(myChar && myChar.role === "victim");
+}
+
+function sanitizeIncomingSession(rawSession) {
+  if (!rawSession || typeof rawSession !== "object") return rawSession;
+  if (rawSession.players && typeof rawSession.players === "object") {
+    const cleanPlayers = {};
+    Object.entries(rawSession.players).forEach(([pid, pObj]) => {
+      if (!isValidId(pid) || !pObj || typeof pObj !== "object") return;
+      const safePlayer = Object.assign({}, pObj);
+      safePlayer.id = isValidId(safePlayer.id) ? safePlayer.id : pid;
+      safePlayer.name = String(safePlayer.name || "Suspect").trim().slice(0, 32) || "Suspect";
+      if (!isValidMugshotDataUrl(safePlayer.mugshot)) {
+        safePlayer.mugshot = "";
+      }
+      cleanPlayers[pid] = safePlayer;
+    });
+    rawSession.players = cleanPlayers;
+  }
+  if (rawSession.latestEvent && rawSession.latestEvent.mp3File && !isValidMp3Filename(rawSession.latestEvent.mp3File)) {
+    rawSession.latestEvent.mp3File = null;
+  }
+  return rawSession;
+}
+
 function subscribeToRoom(code, onFirstLoadCallback) {
-  appState.roomCode = code.toUpperCase();
+  const upperCode = String(code || "").toUpperCase();
+  if (!isValidRoomCode(upperCode)) {
+    alert("Invalid room code format.");
+    return;
+  }
+  appState.roomCode = upperCode;
   try {
     const url = new URL(window.location.href);
     url.searchParams.set("room", appState.roomCode);
@@ -3320,6 +3754,9 @@ function subscribeToRoom(code, onFirstLoadCallback) {
         if (onFirstLoadCallback) onFirstLoadCallback(val);
       }
     });
+    if (appState.viewMode === "tv") {
+      subscribeToHostSecret(appState.roomCode);
+    }
   } else {
     const raw = localStorage.getItem(`mm_room_${appState.roomCode}`);
     const parsed = raw ? JSON.parse(raw) : null;
@@ -3345,7 +3782,7 @@ function writeRoomState(sessionObj) {
   sessionObj.updatedAt = Date.now();
   if (!sessionObj.createdAt) sessionObj.createdAt = sessionObj.updatedAt;
   if (firebaseDb && appState.roomCode) {
-    firebaseDb.ref(`mystery_rooms/${appState.roomCode}`).set(sessionObj);
+    return firebaseDb.ref(`mystery_rooms/${appState.roomCode}`).set(sessionObj);
   } else if (appState.roomCode) {
     localStorage.setItem(`mm_room_${appState.roomCode}`, JSON.stringify(sessionObj));
     if (localChannel) {
@@ -3353,10 +3790,12 @@ function writeRoomState(sessionObj) {
     }
     handleIncomingSessionUpdate(sessionObj);
   }
+  return Promise.resolve();
 }
 
 function handleIncomingSessionUpdate(newSession) {
   if (!newSession) return;
+  newSession = sanitizeIncomingSession(newSession);
   if (!newSession.players) newSession.players = {};
   if (!newSession.publicClues) newSession.publicClues = {};
   if (!newSession.votes) newSession.votes = {};
@@ -3365,6 +3804,11 @@ function handleIncomingSessionUpdate(newSession) {
   if (!newSession.midTwistTriggered) midTwistLatch = false;
   if (newSession.round === 0) {
     try { localStorage.removeItem(getCorkboardKey()); } catch (e) {}
+  }
+
+  // Subscribe to host secret if we are authorized Host or TV and don't have the code cached yet
+  if (firebaseDb && appState.roomCode && !getVisibleHostCode(newSession) && (appState.viewMode === "tv" || isAuthorizedHostOrTV(newSession))) {
+    subscribeToHostSecret(appState.roomCode);
   }
 
   // If this player was active in the lobby (round 0) and was removed by the Host (not an intentional exit)
@@ -3394,13 +3838,20 @@ function handleIncomingSessionUpdate(newSession) {
     } catch (e) {}
   }
 
-  // Self-healing Host check: if no player has isHost=true in lobby, promote first connected player
+  // Self-healing Host check: if no connected player owns hostUid/isHost in lobby, promote first connected player
   if (newSession.round === 0 && newSession.players) {
     const pList = Object.values(newSession.players);
-    if (pList.length > 0 && !pList.some(p => p && p.isHost)) {
+    const activeHostPresent = Boolean(
+      (newSession.hostUid && newSession.players[newSession.hostUid]) ||
+      pList.some(p => p && p.isHost)
+    );
+    if (pList.length > 0 && !activeHostPresent) {
       const firstPid = pList[0].id;
       if (appState.playerId === firstPid && firebaseDb && appState.roomCode) {
-        firebaseDb.ref(`mystery_rooms/${appState.roomCode}/players/${firstPid}/isHost`).set(true);
+        firebaseDb.ref(`mystery_rooms/${appState.roomCode}`).update({
+          hostUid: firstPid,
+          [`players/${firstPid}/isHost`]: true
+        }).catch(() => {});
       }
     }
   }
@@ -3472,25 +3923,41 @@ function handleIncomingSessionUpdate(newSession) {
    5. GAME ROOM CREATION, ATOMIC UPDATES, PACING CONTROLS & AWARDS LOGIC
    ============================================================================ */
 function generateRoomCode() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let out = "";
-  for (let i = 0; i < 4; i++) out += chars[Math.floor(Math.random() * chars.length)];
-  return out;
+  return secureRandomChars(6, ROOM_CODE_ALPHABET);
 }
 
 function createNewRoom(mysteryId, openAsMode) {
+  if (firebaseAuth && !firebaseAuth.currentUser && authReadyPromise) {
+    authReadyPromise.then(() => {
+      if (firebaseAuth && firebaseAuth.currentUser) {
+        createNewRoom(mysteryId, openAsMode);
+      } else {
+        alert("Unable to establish secure session. Please refresh and try again.");
+      }
+    });
+    return;
+  }
+
+  isExplicitExit = false;
   autoPurgeExpiredRooms();
   requestScreenWakeLock();
+  const validMysteryId = MYSTERY_PACKS[mysteryId] ? mysteryId : "reunion_99";
   const code = generateRoomCode();
-  const pack = getEffectivePack(mysteryId, 0);
+  const hostCode = generateHostCode();
+  const pack = getEffectivePack(validMysteryId, 0);
   const now = Date.now();
   const initialSession = {
     roomCode: code,
     createdAt: now,
     updatedAt: now,
-    mysteryId: mysteryId,
+    tvUid: openAsMode === "tv" ? appState.playerId : null,
+    hostUid: openAsMode === "player" ? appState.playerId : null,
+    killerUid: null,
+    ghostUid: null,
+    mysteryId: validMysteryId,
     variantIndex: 0,
     pacingPreset: "standard",
+    tvCompactMode: Boolean(appState.tvCompactMode),
     accompliceEnabled: false,
     accomplicePlayerId: null,
     midTwistTriggered: false,
@@ -3509,6 +3976,10 @@ function createNewRoom(mysteryId, openAsMode) {
       text: `Lobby open for ${pack.title}. Scan QR or enter Room Code ${code} on your phones!`
     }
   };
+  if (!firebaseAuth) {
+    initialSession._offlineHostCode = hostCode;
+  }
+  saveLocalHostCode(code, hostCode);
 
   appState.viewMode = openAsMode;
   try {
@@ -3517,7 +3988,16 @@ function createNewRoom(mysteryId, openAsMode) {
   } catch (e) {}
   updateModeBadge();
   subscribeToRoom(code, () => {
-    writeRoomState(initialSession);
+    const p = writeRoomState(initialSession);
+    if (firebaseDb) {
+      const writeSecret = () => {
+        try {
+          firebaseDb.ref(`room_host_secrets/${code}`).set({ hostCode, updatedAt: now }).catch(() => {});
+        } catch (e) {}
+      };
+      if (p && typeof p.then === "function") p.then(writeSecret).catch(() => {});
+      else writeSecret();
+    }
     if (openAsMode === "player" && appState.playerName) {
       registerPlayerInSession(appState.playerId, appState.playerName);
     }
@@ -3526,14 +4006,28 @@ function createNewRoom(mysteryId, openAsMode) {
 
 function joinExistingRoom(code, playerName, asMode) {
   const cleanCode = (code || "").trim().toUpperCase();
-  if (!cleanCode) return alert("Please enter a 4-letter Room Code.");
+  if (!isValidRoomCode(cleanCode)) {
+    return alert("Please enter a valid 4–6 character Room Code.");
+  }
 
   if (asMode === "player") {
     if (!playerName || !playerName.trim()) return alert("Please enter your name.");
-    appState.playerName = playerName.trim();
-    localStorage.setItem("mm_player_name", appState.playerName);
+    appState.playerName = playerName.trim().slice(0, 24);
+    try { localStorage.setItem("mm_player_name", appState.playerName); } catch (e) {}
   }
 
+  if (firebaseAuth && !firebaseAuth.currentUser && authReadyPromise) {
+    authReadyPromise.then(() => {
+      if (firebaseAuth && firebaseAuth.currentUser) {
+        joinExistingRoom(cleanCode, playerName, asMode);
+      } else {
+        alert("Unable to establish secure session. Please refresh and try again.");
+      }
+    });
+    return;
+  }
+
+  isExplicitExit = false;
   requestScreenWakeLock();
   appState.viewMode = asMode;
   try {
@@ -3544,29 +4038,23 @@ function joinExistingRoom(code, playerName, asMode) {
 
   subscribeToRoom(cleanCode, (existingVal) => {
     if (!existingVal) {
-      const now = Date.now();
-      const fallbackSession = {
-        roomCode: cleanCode,
-        createdAt: now,
-        updatedAt: now,
-        mysteryId: "reunion_99",
-        variantIndex: 0,
-        pacingPreset: "standard",
-        accompliceEnabled: false,
-        accomplicePlayerId: null,
-        midTwistTriggered: false,
-        round: 0,
-        phaseEndsAt: null,
-        isPaused: false,
-        pausedRemainingMs: null,
-        hotSeat: null,
-        players: {},
-        publicClues: {},
-        votes: {},
-        awardVotes: {},
-        latestEvent: { id: "ev_join_" + now, type: "init", text: `Room ${cleanCode} initialized.` }
-      };
-      writeRoomState(fallbackSession);
+      resetToHome();
+      alert(`Room "${cleanCode}" was not found or has expired. Check the TV screen and try again!`);
+      return;
+    }
+    if (asMode === "tv") {
+      if (!existingVal.tvUid) {
+        if (firebaseDb) {
+          firebaseDb.ref(`mystery_rooms/${cleanCode}/tvUid`).set(appState.playerId).catch(() => {});
+        } else {
+          const copy = JSON.parse(JSON.stringify(existingVal));
+          copy.tvUid = appState.playerId;
+          writeRoomState(copy);
+        }
+      }
+      if (firebaseDb) {
+        subscribeToHostSecret(cleanCode);
+      }
     }
     if (asMode === "player") {
       registerPlayerInSession(appState.playerId, appState.playerName);
@@ -3575,6 +4063,7 @@ function joinExistingRoom(code, playerName, asMode) {
 }
 
 function registerPlayerInSession(pid, name) {
+  if (!isValidId(pid)) return;
   const s = appState.sessionData;
   const playersMap = (s && s.players) ? s.players : {};
   const existingPlayer = playersMap[pid];
@@ -3584,20 +4073,26 @@ function registerPlayerInSession(pid, name) {
     return;
   }
 
-  // Self-healing Host check: if no existing player has isHost=true, assign it to this player
-  const anyHostExists = Object.values(playersMap).some(p => p && p.isHost);
-  const mugshotToUse = appState.playerMugshot || (existingPlayer && existingPlayer.mugshot) || "";
+  // Self-healing Host check: if no active host exists, assign hostUid & isHost to this player
+  const activeHostExists = Boolean(
+    (s && s.hostUid && playersMap[s.hostUid]) ||
+    Object.values(playersMap).some(p => p && p.isHost)
+  );
+  const mugshotRaw = appState.playerMugshot || (existingPlayer && existingPlayer.mugshot) || "";
+  const mugshotToUse = isValidMugshotDataUrl(mugshotRaw) ? mugshotRaw : "";
+  const cleanName = String(name || "Suspect").trim().slice(0, 24) || "Suspect";
+  const becomeHost = (existingPlayer && Boolean(existingPlayer.isHost)) || !activeHostExists;
 
   const playerObj = existingPlayer ? {
     ...existingPlayer,
-    name: name,
+    name: cleanName,
     mugshot: mugshotToUse,
-    isHost: existingPlayer.isHost || !anyHostExists
+    isHost: becomeHost
   } : {
     id: pid,
-    name: name,
+    name: cleanName,
     mugshot: mugshotToUse,
-    isHost: !anyHostExists,
+    isHost: becomeHost,
     characterId: null,
     sharedAlibi: false,
     isAccomplice: false,
@@ -3609,7 +4104,15 @@ function registerPlayerInSession(pid, name) {
 
   if (firebaseDb && appState.roomCode) {
     const playerRef = firebaseDb.ref(`mystery_rooms/${appState.roomCode}/players/${pid}`);
-    playerRef.set(playerObj);
+    const pSet = playerRef.set(playerObj);
+    if (becomeHost) {
+      const setHostUid = () => {
+        firebaseDb.ref(`mystery_rooms/${appState.roomCode}/hostUid`).set(pid).catch(() => {});
+        subscribeToHostSecret(appState.roomCode);
+      };
+      if (pSet && typeof pSet.then === "function") pSet.then(setHostUid).catch(() => {});
+      else setHostUid();
+    }
     if (!s || s.round === 0) {
       try { playerRef.onDisconnect().remove(); } catch (e) {}
     }
@@ -3618,22 +4121,30 @@ function registerPlayerInSession(pid, name) {
     const copy = JSON.parse(JSON.stringify(s));
     if (!copy.players) copy.players = {};
     copy.players[pid] = playerObj;
+    if (becomeHost) copy.hostUid = pid;
     writeRoomState(copy);
   }
 }
 
 function removePlayerFromLobby(roomCode, pid, sessionSnapshot) {
-  if (!roomCode || !pid) return;
+  if (!isValidRoomCode(roomCode) || !isValidId(pid)) return;
   const s = sessionSnapshot || appState.sessionData;
+  if (pid !== appState.playerId && !isAuthorizedHostOrTV(s)) {
+    return alert("Only the Host or TV can remove another player.");
+  }
   const players = (s && s.players) ? s.players : {};
   const leavingPlayer = players[pid];
-  const wasHost = Boolean(leavingPlayer && leavingPlayer.isHost);
+  const wasHost = Boolean((leavingPlayer && leavingPlayer.isHost) || (s && s.hostUid === pid));
   const remainingPlayers = Object.values(players).filter(p => p && p.id !== pid);
 
   if (firebaseDb) {
-    if (wasHost && remainingPlayers.length > 0) {
+    if (wasHost) {
+      const nextHostId = remainingPlayers.length > 0 ? remainingPlayers[0].id : null;
       try {
-        firebaseDb.ref(`mystery_rooms/${roomCode}/players/${remainingPlayers[0].id}/isHost`).set(true);
+        firebaseDb.ref(`mystery_rooms/${roomCode}/hostUid`).set(nextHostId);
+        if (nextHostId) {
+          firebaseDb.ref(`mystery_rooms/${roomCode}/players/${nextHostId}/isHost`).set(true);
+        }
       } catch (e) {}
     }
     const playerRef = firebaseDb.ref(`mystery_rooms/${roomCode}/players/${pid}`);
@@ -3645,25 +4156,33 @@ function removePlayerFromLobby(roomCode, pid, sessionSnapshot) {
   } else if (s && s.players) {
     const copy = JSON.parse(JSON.stringify(s));
     delete copy.players[pid];
-    if (wasHost && remainingPlayers.length > 0) {
-      copy.players[remainingPlayers[0].id].isHost = true;
+    if (wasHost) {
+      copy.hostUid = remainingPlayers.length > 0 ? remainingPlayers[0].id : null;
+      if (remainingPlayers.length > 0 && copy.players[remainingPlayers[0].id]) {
+        copy.players[remainingPlayers[0].id].isHost = true;
+      }
     }
     writeRoomState(copy);
   }
 
   // Backup keepalive DELETE request: ensures immediate server-side deletion even if mobile tab is closing
   try {
-    const dbUrl = (DEFAULT_FIREBASE_CONFIG && DEFAULT_FIREBASE_CONFIG.databaseURL) ? DEFAULT_FIREBASE_CONFIG.databaseURL : "";
-    if (dbUrl && typeof fetch === "function") {
-      const restUrl = `${dbUrl.replace(/\/$/, "")}/mystery_rooms/${roomCode}/players/${pid}.json`;
+    const dbUrl = activeDatabaseUrl || (DEFAULT_FIREBASE_CONFIG && DEFAULT_FIREBASE_CONFIG.databaseURL) || "";
+    if (isValidFirebaseUrl(dbUrl) && typeof fetch === "function") {
+      const authSuffix = appState.cachedAuthToken ? `?auth=${encodeURIComponent(appState.cachedAuthToken)}` : "";
+      const restUrl = `${dbUrl.replace(/\/$/, "")}/mystery_rooms/${roomCode}/players/${pid}.json${authSuffix}`;
       fetch(restUrl, { method: "DELETE", keepalive: true }).catch(() => {});
     }
   } catch (e) {}
 }
 
 function kickPlayerFromLobby(pid) {
+  if (!isValidId(pid)) return;
   const s = appState.sessionData;
   if (!s || s.round !== 0 || !s.players) return;
+  if (!isAuthorizedHostOrTV(s)) {
+    return alert("Only the Host or TV can remove players from the lobby.");
+  }
   const target = s.players[pid];
   if (!target) return;
   if (confirm(`Remove ${target.name} from the lobby?`)) {
@@ -3678,26 +4197,120 @@ function claimHostRole() {
   }
 
   const me = s.players[appState.playerId];
-  if (me.isHost) {
+  const currentHostUid = s.hostUid || (Object.values(s.players).find(p => p && p.isHost)?.id) || null;
+  if (currentHostUid === appState.playerId && me.isHost) {
     return alert("You are already the Host of this room!");
   }
 
-  if (!confirm("Claim Host Controls on this phone? This will transfer Host controls from the current Host to you.")) {
-    return;
+  const currentHostPresent = Boolean(currentHostUid && s.players[currentHostUid]);
+  let enteredClaimCode = null;
+
+  if (currentHostPresent) {
+    const rawEntry = prompt(
+      `Host Controls are currently held by ${s.players[currentHostUid].name}.\n\n` +
+      `Enter the 4-digit Host Code shown on the Smart TV to take over Host Controls:`
+    );
+    if (rawEntry === null) return;
+    enteredClaimCode = String(rawEntry).trim();
+    if (!/^\d{4}$/.test(enteredClaimCode)) {
+      return alert("Please enter the exact 4-digit numeric Host Code shown on the Smart TV.");
+    }
+    const localExpected = getVisibleHostCode(s);
+    if (localExpected && enteredClaimCode !== localExpected) {
+      return alert("Incorrect 4-digit Host Code. Check the Smart TV screen and try again.");
+    }
+  } else {
+    if (!confirm("No active Host is in the room. Claim Host Controls on this phone?")) {
+      return;
+    }
   }
 
   const now = Date.now();
+  const evObj = {
+    id: "ev_host_" + now,
+    type: "phase",
+    text: `👑 HOST UPDATE: ${me.name} is now controlling Host functions.`
+  };
+
   if (firebaseDb && appState.roomCode) {
-    const updates = { updatedAt: now };
+    const updates = {
+      hostUid: appState.playerId,
+      latestEvent: evObj,
+      updatedAt: now
+    };
+    if (enteredClaimCode) {
+      updates.hostClaimCode = enteredClaimCode;
+    }
     Object.keys(s.players).forEach(pid => {
       updates[`players/${pid}/isHost`] = (pid === appState.playerId);
     });
-    firebaseDb.ref(`mystery_rooms/${appState.roomCode}`).update(updates);
+    firebaseDb.ref(`mystery_rooms/${appState.roomCode}`).update(updates).then(() => {
+      // Clear temporary claim proof and rotate TV secret code so a one-time code cannot be reused
+      const nextCode = generateHostCode();
+      saveLocalHostCode(appState.roomCode, nextCode);
+      try {
+        firebaseDb.ref(`mystery_rooms/${appState.roomCode}/hostClaimCode`).set(null).catch(() => {});
+        firebaseDb.ref(`room_host_secrets/${appState.roomCode}`).set({ hostCode: nextCode, updatedAt: Date.now() }).catch(() => {});
+      } catch (e) {}
+      subscribeToHostSecret(appState.roomCode);
+    }).catch(() => {
+      alert("Host claim rejected: incorrect 4-digit Host Code or insufficient permissions.");
+    });
   } else {
     const copy = JSON.parse(JSON.stringify(s));
+    copy.hostUid = appState.playerId;
     Object.keys(copy.players).forEach(pid => {
       copy.players[pid].isHost = (pid === appState.playerId);
     });
+    copy.latestEvent = evObj;
+    if (enteredClaimCode) {
+      const rotated = generateHostCode();
+      saveLocalHostCode(appState.roomCode, rotated);
+      if (!firebaseAuth) copy._offlineHostCode = rotated;
+    }
+    writeRoomState(copy);
+  }
+}
+
+function transferHostToPlayer(targetPid) {
+  const s = appState.sessionData;
+  if (!s || !s.players || !isValidId(targetPid)) return;
+  if (!isAuthorizedHostOrTV(s)) {
+    return alert("Only the current Host or Smart TV can transfer Host Controls.");
+  }
+  const target = s.players[targetPid];
+  if (!target) return;
+  if (s.hostUid === targetPid && target.isHost) {
+    return alert(`${target.name} is already the Host.`);
+  }
+  if (!confirm(`Transfer Host Controls to ${target.name}?`)) return;
+
+  const now = Date.now();
+  const evObj = {
+    id: "ev_host_" + now,
+    type: "phase",
+    text: `👑 HOST TRANSFERRED: ${target.name} is now the room Host.`
+  };
+
+  if (firebaseDb && appState.roomCode) {
+    const updates = {
+      hostUid: targetPid,
+      latestEvent: evObj,
+      updatedAt: now
+    };
+    Object.keys(s.players).forEach(pid => {
+      updates[`players/${pid}/isHost`] = (pid === targetPid);
+    });
+    firebaseDb.ref(`mystery_rooms/${appState.roomCode}`).update(updates).catch(() => {
+      alert("Host transfer failed — insufficient permissions.");
+    });
+  } else {
+    const copy = JSON.parse(JSON.stringify(s));
+    copy.hostUid = targetPid;
+    Object.keys(copy.players).forEach(pid => {
+      copy.players[pid].isHost = (pid === targetPid);
+    });
+    copy.latestEvent = evObj;
     writeRoomState(copy);
   }
 }
@@ -3705,6 +4318,9 @@ function claimHostRole() {
 function toggleTimerPause() {
   const s = appState.sessionData;
   if (!s || s.round < 1 || s.round > 3) return;
+  if (!isAuthorizedHostOrTV(s)) {
+    return alert("Only the Host or Smart TV can pause or resume the game.");
+  }
   const now = Date.now();
   let updates = {};
 
@@ -3761,6 +4377,9 @@ const SABOTAGE_BLACKOUT_DURATION_MS = 20 * 1000; // 20 seconds
 function triggerKillerSabotage(actionType) {
   const s = appState.sessionData;
   if (!s || s.round < 1 || s.round > 3) return;
+  if (!isAuthorizedKiller(s)) {
+    return alert("Only the active Killer can trigger Covert Sabotage.");
+  }
   if (s.isPaused) {
     HapticsEngine.trigger("ERROR");
     return alert("Game is currently in Intermission Pause! Wait until the Host resumes.");
@@ -3862,6 +4481,9 @@ function triggerKillerSabotage(actionType) {
 function addFiveMinutesToTimer() {
   const s = appState.sessionData;
   if (!s || s.round < 1 || s.round > 3) return;
+  if (!isAuthorizedHostOrTV(s)) {
+    return alert("Only the Host or Smart TV can add time to the clock.");
+  }
   const now = Date.now();
   const fiveMinMs = 5 * 60 * 1000;
   let updates = {};
@@ -3890,6 +4512,9 @@ function addFiveMinutesToTimer() {
 
 function toggleAccompliceOption(checked) {
   if (!appState.sessionData) return;
+  if (!isAuthorizedHostOrTV(appState.sessionData)) {
+    return alert("Only the Host or Smart TV can toggle Accomplice Mode.");
+  }
   if (firebaseDb && appState.roomCode) {
     firebaseDb.ref(`mystery_rooms/${appState.roomCode}`).update({
       accompliceEnabled: Boolean(checked),
@@ -3903,15 +4528,20 @@ function toggleAccompliceOption(checked) {
 }
 
 function addDemoPlayersToFillSix() {
-  if (!appState.sessionData) return;
+  if (!appState.sessionData || appState.sessionData.round !== 0) return;
+  if (!isAuthorizedHostOrTV(appState.sessionData)) {
+    return alert("Only the Host or Smart TV can add demo bots.");
+  }
   const s = JSON.parse(JSON.stringify(appState.sessionData));
   if (!s.players) s.players = {};
   const botNames = ["Alex (Bot)", "Sam (Bot)", "Taylor (Bot)", "Jordan (Bot)", "Casey (Bot)", "Riley (Bot)", "Morgan (Bot)", "Quinn (Bot)"];
+  const fbUpdates = {};
+  let addedAny = false;
   let idx = 0;
   while (Object.keys(s.players).length < 6 && idx < botNames.length) {
     const bid = "bot_" + idx;
     if (!s.players[bid]) {
-      s.players[bid] = {
+      const botObj = {
         id: bid,
         name: botNames[idx],
         mugshot: "",
@@ -3924,10 +4554,19 @@ function addDemoPlayersToFillSix() {
         unlockedPrivateClues: {},
         joinedAt: Date.now() + idx
       };
+      s.players[bid] = botObj;
+      fbUpdates[`players/${bid}`] = botObj;
+      addedAny = true;
     }
     idx++;
   }
-  writeRoomState(s);
+  if (!addedAny) return;
+  if (firebaseDb && appState.roomCode) {
+    fbUpdates.updatedAt = Date.now();
+    firebaseDb.ref(`mystery_rooms/${appState.roomCode}`).update(fbUpdates);
+  } else {
+    writeRoomState(s);
+  }
 }
 
 function getLocalPlayedVariants() {
@@ -3971,7 +4610,10 @@ function recordPlayedVariant(mysteryId, variantIdx, s) {
 }
 
 function changeRoomMystery(newMysteryId) {
-  if (!appState.sessionData) return;
+  if (!appState.sessionData || !MYSTERY_PACKS[newMysteryId]) return;
+  if (!isAuthorizedHostOrTV(appState.sessionData)) {
+    return alert("Only the Host or Smart TV can switch the Mystery Cartridge.");
+  }
   const now = Date.now();
   const pack = getEffectivePack(newMysteryId, appState.sessionData.variantIndex || 0);
   const evObj = {
@@ -3996,6 +4638,9 @@ function changeRoomMystery(newMysteryId) {
 
 function assignCharactersAndStartAct1() {
   if (!appState.sessionData || appState.sessionData.round !== 0) return;
+  if (!isAuthorizedHostOrTV(appState.sessionData)) {
+    return alert("Only the Host or Smart TV can deal characters and start Act I.");
+  }
   const s = JSON.parse(JSON.stringify(appState.sessionData));
   const playerIds = Object.keys(s.players || {}).slice(0, 10);
 
@@ -4023,11 +4668,13 @@ function assignCharactersAndStartAct1() {
 
   const usedPins = new Set();
   const innocentPlayerIds = [];
+  let assignedKillerUid = null;
+  let assignedGhostUid = null;
 
   playerIds.forEach((pid, idx) => {
-    let pin = String(Math.floor(11 + Math.random() * 88));
+    let pin = String(11 + secureRandomInt(88));
     while (usedPins.has(pin)) {
-      pin = String(Math.floor(11 + Math.random() * 88));
+      pin = String(11 + secureRandomInt(88));
     }
     usedPins.add(pin);
 
@@ -4043,14 +4690,22 @@ function assignCharactersAndStartAct1() {
     s.players[pid].unlockedPrivateClues = {};
     s.players[pid].plantedDecoys = {};
 
+    if (assignedChar.role === "killer" && !pid.startsWith("bot_")) {
+      assignedKillerUid = pid;
+    } else if (assignedChar.role === "victim" && !pid.startsWith("bot_")) {
+      assignedGhostUid = pid;
+    }
+
     if (assignedChar.role === "suspect") {
       innocentPlayerIds.push(pid);
     }
   });
 
+  s.killerUid = assignedKillerUid;
+  s.ghostUid = assignedGhostUid;
   s.accomplicePlayerId = null;
   if (s.accompliceEnabled && innocentPlayerIds.length > 0) {
-    const accPid = innocentPlayerIds[Math.floor(Math.random() * innocentPlayerIds.length)];
+    const accPid = innocentPlayerIds[secureRandomInt(innocentPlayerIds.length)];
     s.players[accPid].isAccomplice = true;
     s.accomplicePlayerId = accPid;
   }
@@ -4081,6 +4736,8 @@ function assignCharactersAndStartAct1() {
       variantIndex: s.variantIndex,
       playedVariants: s.playedVariants,
       midTwistTriggered: false,
+      killerUid: assignedKillerUid,
+      ghostUid: assignedGhostUid,
       accomplicePlayerId: s.accomplicePlayerId,
       round: 1,
       isPaused: false,
@@ -4173,6 +4830,9 @@ function executePinPatDown() {
 
 function triggerBlackoutMurder() {
   if (!appState.sessionData || appState.sessionData.round !== 1) return;
+  if (!isAuthorizedHostOrTV(appState.sessionData) && !isAuthorizedKiller(appState.sessionData)) {
+    return alert("Only the Host, Smart TV, or active Killer can trigger the Blackout Murder.");
+  }
   const s = JSON.parse(JSON.stringify(appState.sessionData));
   const pack = getEffectivePack(s.mysteryId, s.variantIndex);
   const victimChar = pack.characters[0];
@@ -4226,6 +4886,9 @@ function triggerBlackoutMurder() {
 function releaseVictimPocketNote() {
   const s = appState.sessionData;
   if (!s) return;
+  if (!isAuthorizedGhostOrHost(s)) {
+    return alert("Only the Ghost Investigator or Host/TV can release the Victim's Pocket Note.");
+  }
   const pack = getEffectivePack(s.mysteryId, s.variantIndex);
   const victimChar = pack.characters[0];
   if (!victimChar || !victimChar.searchClue) return;
@@ -4264,6 +4927,9 @@ function releaseVictimPocketNote() {
 function triggerMidRoundTwist() {
   const s = appState.sessionData;
   if (!s || s.round !== 2 || s.midTwistTriggered || midTwistLatch) return;
+  if (!isAuthorizedGhostOrHost(s)) {
+    return alert("Only the Host, Smart TV, or Ghost Investigator can trigger the Breaking News Plot Twist.");
+  }
   midTwistLatch = true;
 
   const pack = getEffectivePack(s.mysteryId, s.variantIndex);
@@ -4305,6 +4971,9 @@ function triggerMidRoundTwist() {
 function releaseForensicClue(clueId) {
   const s = appState.sessionData;
   if (!s) return;
+  if (!isAuthorizedGhostOrHost(s)) {
+    return alert("Only the Ghost Investigator or Host/TV can release forensic bulletins.");
+  }
   const pack = getEffectivePack(s.mysteryId, s.variantIndex);
   const item = pack.forensicAutopsy.find(f => f.id === clueId);
   if (!item) return;
@@ -4341,6 +5010,9 @@ function releaseForensicClue(clueId) {
 function releaseCharacterSearchClue(charId, sourceLabel = "Detective Search") {
   const s = appState.sessionData;
   if (!s) return;
+  if (!isAuthorizedGhostOrHost(s)) {
+    return alert("Only the Ghost Investigator or Host/TV can broadcast character search files.");
+  }
   const pack = getEffectivePack(s.mysteryId, s.variantIndex);
   const charObj = pack.characters.find(c => c.id === charId);
   if (!charObj) return;
@@ -4378,7 +5050,10 @@ function releaseCharacterSearchClue(charId, sourceLabel = "Detective Search") {
 
 function sharePlayerAlibiClue(pid) {
   const s = appState.sessionData;
-  if (!s || !s.players || !s.players[pid]) return;
+  if (!s || !s.players || !isValidId(pid) || !s.players[pid]) return;
+  if (pid !== appState.playerId && !isAuthorizedHostOrTV(s)) {
+    return alert("You can only share your own alibi statement.");
+  }
   const pack = getEffectivePack(s.mysteryId, s.variantIndex);
   const p = s.players[pid];
   const charObj = pack.characters.find(c => c.id === p.characterId);
@@ -4419,6 +5094,9 @@ function sharePlayerAlibiClue(pid) {
 
 function advanceToAct3Voting() {
   if (!appState.sessionData || appState.sessionData.round !== 2) return;
+  if (!isAuthorizedHostOrTV(appState.sessionData)) {
+    return alert("Only the Host or Smart TV can open Act III Voting.");
+  }
   const s = JSON.parse(JSON.stringify(appState.sessionData));
   const pack = getEffectivePack(s.mysteryId, s.variantIndex);
   const now = Date.now();
@@ -4507,45 +5185,65 @@ function advanceToAct3Voting() {
 }
 
 function submitPlayerVote(voterId, suspectCharId) {
-  if (appState.sessionData && appState.sessionData.isPaused) {
+  const s = appState.sessionData;
+  if (!s || s.round !== 3 || !s.players) return;
+  if (voterId !== appState.playerId || !isValidId(voterId) || !s.players[voterId]) {
+    return alert("You may only cast or change your own vote.");
+  }
+  if (s.isPaused) {
     HapticsEngine.trigger("ERROR");
     return alert("Game is paused for Intermission!");
   }
-  const currentVote = appState.sessionData?.votes?.[voterId] || null;
+  const pack = getEffectivePack(s.mysteryId, s.variantIndex);
+  const validSuspect = pack && pack.characters && pack.characters.some(c => c.id === suspectCharId && c.role !== "victim");
+  if (!validSuspect) return;
+  const myChar = pack.characters.find(c => c.id === s.players[voterId].characterId);
+  if (myChar && myChar.role === "victim") {
+    return alert("The Ghost Investigator does not cast an accusation vote.");
+  }
+
+  const currentVote = s.votes?.[voterId] || null;
   const nextVote = (currentVote === suspectCharId) ? null : suspectCharId;
 
   HapticsEngine.trigger("VOTE_LOCKED");
   if (firebaseDb && appState.roomCode) {
     firebaseDb.ref(`mystery_rooms/${appState.roomCode}/votes/${voterId}`).set(nextVote);
     firebaseDb.ref(`mystery_rooms/${appState.roomCode}/updatedAt`).set(Date.now());
-  } else if (appState.sessionData) {
-    const s = JSON.parse(JSON.stringify(appState.sessionData));
-    if (!s.votes) s.votes = {};
-    if (nextVote === null) delete s.votes[voterId];
-    else s.votes[voterId] = nextVote;
-    writeRoomState(s);
+  } else {
+    const copy = JSON.parse(JSON.stringify(s));
+    if (!copy.votes) copy.votes = {};
+    if (nextVote === null) delete copy.votes[voterId];
+    else copy.votes[voterId] = nextVote;
+    writeRoomState(copy);
   }
 }
 
 function submitAwardVote(voterId, category, targetPlayerId) {
-  if (appState.sessionData && appState.sessionData.isPaused) {
+  const s = appState.sessionData;
+  if (!s || s.round !== 3 || !s.players) return;
+  if (voterId !== appState.playerId || !isValidId(voterId) || !s.players[voterId]) {
+    return alert("You may only cast or change your own award vote.");
+  }
+  if (category !== "roleplayer" && category !== "pokerface") return;
+  if (!isValidId(targetPlayerId) || !s.players[targetPlayerId]) return;
+  if (s.isPaused) {
     HapticsEngine.trigger("ERROR");
     return alert("Game is paused for Intermission!");
   }
-  const currentTarget = appState.sessionData?.awardVotes?.[category]?.[voterId] || null;
+  const currentTarget = s.awardVotes?.[category]?.[voterId] || null;
   const nextTarget = (currentTarget === targetPlayerId) ? null : targetPlayerId;
 
   HapticsEngine.trigger("VOTE_LOCKED");
   if (firebaseDb && appState.roomCode) {
     firebaseDb.ref(`mystery_rooms/${appState.roomCode}/awardVotes/${category}/${voterId}`).set(nextTarget);
     firebaseDb.ref(`mystery_rooms/${appState.roomCode}/updatedAt`).set(Date.now());
-  } else if (appState.sessionData) {
-    const s = JSON.parse(JSON.stringify(appState.sessionData));
-    if (!s.awardVotes) s.awardVotes = {};
-    if (!s.awardVotes[category]) s.awardVotes[category] = {};
-    if (nextTarget === null) delete s.awardVotes[category][voterId];
-    else s.awardVotes[category][voterId] = nextTarget;
-    writeRoomState(s);
+  } else {
+    const copy = JSON.parse(JSON.stringify(s));
+    if (!copy.awardVotes) copy.awardVotes = {};
+    if (!copy.awardVotes[category]) copy.awardVotes[category] = {};
+    if (nextTarget === null) delete copy.awardVotes[category][voterId];
+    else copy.awardVotes[category][voterId] = nextTarget;
+    writeRoomState(copy);
   }
 }
 
@@ -4585,6 +5283,9 @@ function computeAwardWinners(s, pack) {
 
 function revealFinalSolution() {
   if (!appState.sessionData || appState.sessionData.round !== 3) return;
+  if (!isAuthorizedHostOrTV(appState.sessionData)) {
+    return alert("Only the Host or Smart TV can reveal the Final Solution.");
+  }
   const s = JSON.parse(JSON.stringify(appState.sessionData));
   const pack = getEffectivePack(s.mysteryId, s.variantIndex);
   const now = Date.now();
@@ -4619,9 +5320,13 @@ function revealFinalSolution() {
 function resetRoomForNextGame(optionalNextMysteryId) {
   const s = appState.sessionData;
   if (!s) return;
+  if (!isAuthorizedHostOrTV(s)) {
+    return alert("Only the Host or Smart TV can start the next mystery in this room.");
+  }
   const packIds = Object.keys(MYSTERY_PACKS);
   const currentIdx = packIds.indexOf(s.mysteryId);
-  const nextMysteryId = optionalNextMysteryId || packIds[(currentIdx + 1) % packIds.length] || s.mysteryId;
+  const validOpt = (optionalNextMysteryId && MYSTERY_PACKS[optionalNextMysteryId]) ? optionalNextMysteryId : null;
+  const nextMysteryId = validOpt || packIds[(currentIdx + 1) % packIds.length] || s.mysteryId;
   const nextPack = getEffectivePack(nextMysteryId, 0);
   const now = Date.now();
 
@@ -4636,6 +5341,8 @@ function resetRoomForNextGame(optionalNextMysteryId) {
       mysteryId: nextMysteryId,
       round: 0,
       midTwistTriggered: false,
+      killerUid: null,
+      ghostUid: null,
       accomplicePlayerId: null,
       isPaused: false,
       pausedRemainingMs: null,
@@ -4667,6 +5374,8 @@ function resetRoomForNextGame(optionalNextMysteryId) {
     copy.mysteryId = nextMysteryId;
     copy.round = 0;
     copy.midTwistTriggered = false;
+    copy.killerUid = null;
+    copy.ghostUid = null;
     copy.accomplicePlayerId = null;
     copy.isPaused = false;
     copy.pausedRemainingMs = null;
@@ -4834,6 +5543,7 @@ function updateModeBadge() {
   const exitBtn = document.getElementById("exitRoomBtn");
 
   document.body.classList.toggle("tv-mode-locked", appState.viewMode === "tv");
+  applyTvCompactClasses();
   if (appState.viewMode === "home") {
     if (el) el.classList.add("hidden");
     if (hostBtn) hostBtn.classList.add("hidden");
@@ -4867,6 +5577,10 @@ function resetToHome() {
     roomRef.off();
     roomRef = null;
   }
+  if (secretHostRef) {
+    secretHostRef.off();
+    secretHostRef = null;
+  }
   appState.viewMode = "home";
   appState.roomCode = "";
   appState.sessionData = null;
@@ -4895,12 +5609,14 @@ function resetToHome() {
 }
 
 function renderApp() {
+  applyTvCompactClasses();
+  updateModeBadge();
   const root = document.getElementById("appRoot");
   if (!root) return;
 
   const hostBtn = document.getElementById("claimHostTopBtn");
   if (hostBtn && appState.viewMode === "player") {
-    const amIHost = Boolean(appState.sessionData?.players?.[appState.playerId]?.isHost);
+    const amIHost = isAuthorizedHostOrTV(appState.sessionData);
     hostBtn.textContent = amIHost ? "👑 Host ✓" : "👑 Claim Host";
     hostBtn.className = amIHost
       ? "text-[11px] sm:text-xs bg-emerald-950/90 text-emerald-300 px-2 sm:px-2.5 py-1 rounded border border-emerald-700 font-bold transition"
@@ -4983,13 +5699,13 @@ function renderHomeLauncher() {
             </div>
             <h2 class="text-xl sm:text-2xl font-bold text-white mb-2">Join an Active Room</h2>
             <p class="text-xs text-slate-400 mb-3 leading-relaxed">
-              Enter the 4-letter Room Code shown on the TV screen and snap an optional Noir Mugshot for the Suspect Board.
+              Enter the 6-char Room Code shown on the TV screen and snap an optional Noir Mugshot for the Suspect Board.
             </p>
             <div class="space-y-3 mb-4">
               <div class="grid grid-cols-2 gap-2.5">
                 <div>
                   <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">Room Code</label>
-                  <input id="joinRoomCodeInput" type="text" maxlength="6" value="${escapeHtml(appState.roomCode || '')}" placeholder="e.g. K9X4" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 sm:p-3 text-base font-mono-code uppercase tracking-widest text-indigo-300 focus:outline-none focus:border-indigo-500" />
+                  <input id="joinRoomCodeInput" type="text" maxlength="6" value="${escapeHtml(appState.roomCode || '')}" placeholder="e.g. K9X4M2" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 sm:p-3 text-base font-mono-code uppercase tracking-widest text-indigo-300 focus:outline-none focus:border-indigo-500" />
                 </div>
                 <div>
                   <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">First Name</label>
@@ -5127,6 +5843,7 @@ function renderTVDashboard() {
   const hotPlayer = hotChar ? playersList.find(p => p.characterId === hotChar.id) : null;
   const hotLeakedClue = hotChar ? cluesList.find(cl => cl.id === "search_" + hotChar.id) : null;
   const pacingCfg = getPacingConfig(s.pacingPreset);
+  const hostCodeDisplay = getVisibleHostCode(s);
 
   const roundTitles = {
     0: "PRE-GAME LOBBY — SCAN QR OR ENTER CODE TO JOIN",
@@ -5143,7 +5860,7 @@ function renderTVDashboard() {
   return `
     <div class="h-full w-full flex flex-col justify-between p-2.5 lg:p-4 gap-2 overflow-hidden ${isBlackout ? 'blackout-flash' : 'bg-slate-950'} transition-colors duration-700">
       <!-- COMPACT ADAPTIVE TV HEADER -->
-      <div class="shrink-0 flex items-center justify-between gap-4 bg-slate-900/90 border border-slate-800 rounded-2xl px-4 py-2.5 shadow-xl">
+      <div class="tv-header-bar shrink-0 flex items-center justify-between gap-4 bg-slate-900/90 border border-slate-800 rounded-2xl px-4 py-2.5 shadow-xl">
         <div class="flex-1 min-w-0">
           <div class="flex flex-wrap items-center gap-2">
             <span class="px-2.5 py-0.5 rounded-full text-[11px] font-mono-code font-bold uppercase border ${pack.badgeColor}">
@@ -5155,6 +5872,9 @@ function renderTVDashboard() {
             <button onclick="soundFX.toggleAmbient()" class="text-[11px] bg-slate-800 hover:bg-slate-700 ${soundFX.ambientEnabled ? 'text-cyan-300 border-cyan-800' : 'text-slate-400 border-slate-700'} px-2.5 py-0.5 rounded-lg border">
               🎵 Ambient: ${soundFX.ambientEnabled ? 'ON' : 'OFF'}
             </button>
+            <button onclick="toggleTvCompactMode()" title="Toggle Compact Screen Mode for smaller TVs or lower resolutions" class="text-[11px] bg-slate-800 hover:bg-slate-700 ${isTvCompactActive() ? 'text-amber-300 border-amber-600 font-bold' : 'text-slate-300 border-slate-700'} px-2.5 py-0.5 rounded-lg border">
+              📺 Screen: ${isTvCompactActive() ? 'Compact' : 'Standard'}
+            </button>
             <button onclick="toggleTvControls()" class="text-[11px] bg-slate-800 hover:bg-slate-700 ${appState.tvControlsOpen ? 'text-indigo-300 border-indigo-600' : 'text-slate-300 border-slate-700'} px-2.5 py-0.5 rounded-lg border">
               ⚙️ TV Host Controls ${appState.tvControlsOpen ? '▲' : '▼'}
             </button>
@@ -5164,7 +5884,7 @@ function renderTVDashboard() {
             </button>
           </div>
           <div class="flex items-baseline gap-3 mt-1 truncate">
-            <h1 class="text-lg lg:text-2xl font-serif-title font-extrabold text-white truncate">
+            <h1 class="tv-header-title text-lg lg:text-2xl font-serif-title font-extrabold text-white truncate">
               ${themeNumber}. ${escapeHtml(pack.title)}
             </h1>
             <p class="hidden xl:block text-xs text-slate-400 truncate">${escapeHtml(pack.subtitle)}</p>
@@ -5190,8 +5910,14 @@ function renderTVDashboard() {
 
       ${appState.tvControlsOpen ? `
         <div class="shrink-0 bg-slate-900/95 border border-indigo-700/80 rounded-xl px-4 py-2 flex flex-wrap items-center justify-between gap-2 shadow-lg">
-          <span class="text-xs font-mono-code uppercase font-bold text-indigo-300">📺 Backup TV Host Controls (Round ${s.round}/4)</span>
           <div class="flex flex-wrap items-center gap-2">
+            <span class="text-xs font-mono-code uppercase font-bold text-indigo-300">📺 Backup TV Host Controls (Round ${s.round}/4)</span>
+            ${hostCodeDisplay ? `<span class="text-[11px] font-mono-code font-bold px-2 py-0.5 rounded bg-amber-950/70 text-amber-300 border border-amber-600/60">🔑 Host Code: ${escapeHtml(hostCodeDisplay)}</span>` : ""}
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <button onclick="toggleTvCompactMode()" class="px-2.5 py-1 rounded-lg text-xs font-semibold ${isTvCompactActive() ? 'bg-amber-600 text-slate-950 font-bold' : 'bg-slate-800 text-slate-200 border border-slate-700'}">
+              📺 Screen Size: ${isTvCompactActive() ? 'Compact (Small TV)' : 'Standard TV'}
+            </button>
             ${s.round === 0 ? `
               <select onchange="changeRoomMystery(this.value)" class="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white">
                 ${packList.map((m, idx) => `<option value="${m.id}" ${m.id === s.mysteryId ? 'selected' : ''}>${idx + 1}. ${escapeHtml(m.title)}</option>`).join("")}
@@ -5215,14 +5941,14 @@ function renderTVDashboard() {
               <button onclick="revealFinalSolution()" class="px-3 py-1 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white">🎭 Reveal Solution (Act IV)</button>
             ` : `
               <button onclick="resetRoomForNextGame()" class="px-3 py-1 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white">🔄 Next Mystery in Same Room</button>
-              <button onclick="resetRoomForNextGame('${escapeHtml(s.mysteryId)}')" class="px-3 py-1 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">🎲 Replay Same Pack (Fresh Ending)</button>
+              <button data-action="replay-mystery" data-mystery-id="${escapeHtml(s.mysteryId)}" class="px-3 py-1 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">🎲 Replay Same Pack (Fresh Ending)</button>
             `}
           </div>
         </div>
       ` : ""}
 
       <!-- FULL-WIDTH LIVE NEWS TICKER BAR (DIRECTLY BELOW HEADER) -->
-      <div class="shrink-0 w-full bg-slate-900/95 border border-slate-800 rounded-xl px-4 py-1.5 overflow-hidden flex items-center gap-3 shadow-md">
+      <div class="tv-ticker-bar shrink-0 w-full bg-slate-900/95 border border-slate-800 rounded-xl px-4 py-1.5 overflow-hidden flex items-center gap-3 shadow-md">
         <span class="shrink-0 text-[10px] font-mono-code uppercase font-extrabold px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-700/80">
           ⚡ LIVE FEED
         </span>
@@ -5236,34 +5962,40 @@ function renderTVDashboard() {
       <!-- MAIN 12-COL ADAPTIVE TV BODY (FITS 100% OF REMAINING VIEWPORT HEIGHT) -->
       <div class="flex-1 min-h-0 grid grid-cols-12 gap-3 items-stretch overflow-hidden">
         <!-- LEFT 7 COLUMNS: SCENE / EVIDENCE / SOLUTION -->
-        <div class="col-span-12 lg:col-span-7 bg-slate-900/80 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between min-h-0 overflow-hidden">
+        <div class="col-span-12 lg:col-span-7 bg-slate-900/80 border border-slate-800 rounded-2xl p-3.5 sm:p-4 flex flex-col justify-between min-h-0 overflow-hidden">
           ${s.round === 0 ? `
-            <div class="flex-1 min-h-0 flex flex-col justify-between space-y-3 overflow-hidden">
+            <div class="flex-1 min-h-0 flex flex-col justify-between space-y-2.5 sm:space-y-3 overflow-hidden">
               <div class="flex items-center justify-between gap-2 shrink-0">
-                <h2 class="text-lg font-bold text-white">Scan QR Code or Enter Room Code to Join</h2>
-                <span class="text-xs font-mono-code text-slate-400">Managed from Host Phone or TV Controls</span>
+                <h2 class="text-base sm:text-lg font-bold text-white">Scan QR Code or Enter Room Code to Join</h2>
+                <span class="tv-lobby-subtitle text-[11px] sm:text-xs font-mono-code text-slate-400">Managed from Host Phone or TV Controls</span>
               </div>
 
               <!-- EXTRA-LARGE LOBBY QR CODE & JOIN BANNER -->
-              <div class="flex-1 min-h-0 bg-slate-950/90 border-2 border-indigo-500/60 rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-center gap-6 lg:gap-8 shadow-xl overflow-hidden">
-                <div id="tvQrContainer" class="tvQrTarget w-56 h-56 lg:w-64 lg:h-64 xl:w-72 xl:h-72 max-h-full aspect-square bg-white p-3 rounded-2xl shadow-2xl shrink-0 flex items-center justify-center"></div>
-                <div class="space-y-3 text-center sm:text-left flex-1 min-w-0">
+              <div class="tv-lobby-card flex-1 min-h-0 bg-slate-950/90 border-2 border-indigo-500/60 rounded-2xl p-3.5 sm:p-4 lg:p-5 flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 lg:gap-8 shadow-xl overflow-hidden">
+                <div id="tvQrContainer" class="tvQrTarget bg-white p-2 sm:p-2.5 lg:p-3 rounded-2xl shadow-2xl shrink-0 flex items-center justify-center"></div>
+                <div class="space-y-1.5 sm:space-y-2.5 text-center sm:text-left flex-1 min-w-0">
                   <div>
-                    <div class="text-xs lg:text-sm font-mono-code uppercase tracking-widest text-slate-400 font-bold">ROOM CODE</div>
-                    <div class="text-5xl lg:text-7xl font-mono-code font-extrabold text-indigo-400 tracking-widest leading-none mt-1">${escapeHtml(s.roomCode)}</div>
+                    <div class="text-[10px] sm:text-xs lg:text-sm font-mono-code uppercase tracking-widest text-slate-400 font-bold">ROOM CODE</div>
+                    <div class="tv-room-code-display text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-mono-code font-extrabold text-indigo-400 tracking-widest leading-tight mt-0.5">${escapeHtml(s.roomCode)}</div>
+                    ${hostCodeDisplay ? `
+                      <div class="mt-1 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-amber-950/60 border border-amber-500/40 text-[11px] font-mono-code text-amber-300">
+                        <span>🔑 Claim Host Code:</span>
+                        <strong class="tracking-widest font-extrabold">${escapeHtml(hostCodeDisplay)}</strong>
+                      </div>
+                    ` : ""}
                   </div>
-                  <p class="text-xs lg:text-base text-slate-200 leading-relaxed pt-3 border-t border-slate-800/80 line-clamp-6">
+                  <p class="tv-setting-intro text-xs sm:text-sm lg:text-base text-slate-200 leading-relaxed pt-2 sm:pt-2.5 border-t border-slate-800/80 line-clamp-3 sm:line-clamp-4 lg:line-clamp-6">
                     "${escapeHtml(pack.settingIntro)}"
                   </p>
                 </div>
               </div>
 
-              <div class="shrink-0 bg-indigo-950/30 border border-indigo-800/60 rounded-xl p-3 flex items-center justify-between gap-3">
+              <div class="tv-lobby-footer shrink-0 bg-indigo-950/30 border border-indigo-800/60 rounded-xl p-2.5 sm:p-3 flex items-center justify-between gap-3">
                 <div>
-                  <div class="text-xs lg:text-sm font-bold text-indigo-300">📱 Waiting for Host to Start Act I on Phone</div>
-                  <div class="text-[11px] text-slate-400">Scan the QR code with your phone camera to join. The first player in (or anyone who taps <strong>👑 Claim Host</strong> on their phone) controls the game phases!</div>
+                  <div class="text-xs sm:text-sm font-bold text-indigo-300">📱 Waiting for Host to Start Act I on Phone</div>
+                  <div class="text-[10px] sm:text-[11px] text-slate-400">Scan the QR code with your phone camera to join. Tap <strong>👑 Claim Host</strong> (enter the 4-digit Claim Host Code above if a Host is active) to control the game phases!</div>
                 </div>
-                <span class="text-xs font-mono-code px-3 py-1.5 rounded-lg bg-slate-950 text-indigo-300 border border-indigo-800 shrink-0">${playersList.length}/10 Joined</span>
+                <span class="text-xs font-mono-code px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg bg-slate-950 text-indigo-300 border border-indigo-800 shrink-0">${playersList.length}/10 Joined</span>
               </div>
             </div>
           ` : s.round === 4 ? `
@@ -5284,7 +6016,7 @@ function renderTVDashboard() {
               <div class="flex-1 min-h-0 flex flex-col justify-center overflow-hidden">
                 <h2 class="text-base lg:text-xl font-serif-title font-bold text-white mb-1 shrink-0">Whodunit & How They Were Caught</h2>
                 <p class="text-xs lg:text-sm text-emerald-200 bg-emerald-950/40 border border-emerald-700/60 rounded-xl p-3 leading-relaxed overflow-y-auto">
-                  ${pack.solutionText}
+                  ${escapeHtml(pack.solutionText)}
                 </p>
               </div>
 
@@ -5298,7 +6030,7 @@ function renderTVDashboard() {
           ` : `
             <div class="flex-1 min-h-0 flex flex-col gap-2.5 overflow-hidden">
               ${hotActive && hotChar ? `
-                <div class="shrink-0 bg-amber-950/80 border-2 border-amber-400 rounded-2xl p-3.5 shadow-2xl space-y-2 animate-pulse">
+                <div class="tv-hotseat-box shrink-0 bg-amber-950/80 border-2 border-amber-400 rounded-2xl p-3.5 shadow-2xl space-y-2 animate-pulse">
                   <div class="flex items-center justify-between gap-2">
                     <div class="flex items-center gap-2.5 min-w-0">
                       ${renderMugshotAvatar(hotPlayer || { id: "npc_" + hotChar.id, name: hotChar.name }, false, "w-12 h-12")}
@@ -5357,7 +6089,7 @@ function renderTVDashboard() {
                 ` : `
                   <div data-scroll-id="tvCluesScroll" class="flex-1 min-h-0 grid ${clueGridCols} gap-2 overflow-y-auto content-start pr-1">
                     ${cluesList.map(c => `
-                      <div class="bg-slate-950/90 border ${c.id === 'twist_mid' ? 'border-rose-500 bg-rose-950/20' : 'border-slate-700/80'} rounded-xl ${denseClues ? 'p-2' : 'p-2.5'} shadow flex flex-col justify-between">
+                      <div class="tv-clue-card bg-slate-950/90 border ${c.id === 'twist_mid' ? 'border-rose-500 bg-rose-950/20' : 'border-slate-700/80'} rounded-xl ${denseClues ? 'p-2' : 'p-2.5'} shadow flex flex-col justify-between">
                         <div class="flex items-center justify-between gap-1 text-[10px] font-mono-code ${c.id === 'twist_mid' ? 'text-rose-300 font-bold' : 'text-amber-400'} mb-0.5">
                           <span class="truncate">${escapeHtml(c.title)}</span>
                           <span class="text-slate-500 shrink-0">${escapeHtml(c.source)}</span>
@@ -5402,13 +6134,13 @@ function renderTVDashboard() {
                   const charRoleSub = (charObj && charObj.name.includes("(")) ? "(" + charObj.name.split("(")[1] : "";
 
                   return `
-                    <div class="flex items-center justify-between px-2.5 py-1.5 rounded-xl border min-w-0 overflow-hidden ${isGhost ? 'bg-rose-950/40 border-rose-700/70' : 'bg-slate-950/70 border-slate-800'}">
+                    <div class="tv-roster-card flex items-center justify-between px-2.5 py-1.5 rounded-xl border min-w-0 overflow-hidden ${isGhost ? 'bg-rose-950/40 border-rose-700/70' : 'bg-slate-950/70 border-slate-800'}">
                       <div class="flex items-center gap-2 min-w-0 flex-1">
-                        ${renderMugshotAvatar(p, isGhost, "w-9 h-9 lg:w-10 lg:h-10")}
+                        ${renderMugshotAvatar(p, isGhost, "tv-roster-avatar w-9 h-9 lg:w-10 lg:h-10")}
                         <div class="min-w-0 flex-1">
                           ${charObj ? `
                             <div class="flex items-center gap-1 flex-wrap leading-tight">
-                              <span class="font-extrabold text-xs lg:text-sm text-amber-300 truncate">${escapeHtml(charShortName)}</span>
+                              <span class="tv-roster-name font-extrabold text-xs lg:text-sm text-amber-300 truncate">${escapeHtml(charShortName)}</span>
                               ${isGhost ? `<span class="text-[9px] font-mono-code bg-rose-600 text-white px-1 py-0.2 rounded font-bold shrink-0">👻 GHOST</span>` : ""}
                               ${s.round === 4 && p.isAccomplice ? `<span class="text-[9px] font-mono-code bg-purple-700 text-white px-1 py-0.2 rounded font-bold shrink-0">🤝 ALLY</span>` : ""}
                             </div>
@@ -5419,7 +6151,7 @@ function renderTVDashboard() {
                             </div>
                           ` : `
                             <div class="flex items-center gap-1">
-                              <span class="font-bold text-xs lg:text-sm text-white truncate">${escapeHtml(p.name)}</span>
+                              <span class="tv-roster-name font-bold text-xs lg:text-sm text-white truncate">${escapeHtml(p.name)}</span>
                               ${p.isHost ? `<span class="text-[8px] font-mono-code bg-slate-800 text-amber-300 px-1 py-0.5 rounded shrink-0">HOST</span>` : ""}
                             </div>
                             <div class="text-[10px] text-slate-400 truncate">In Lobby...</div>
@@ -5428,7 +6160,7 @@ function renderTVDashboard() {
                       </div>
                       <div class="text-right shrink-0 pl-1">
                         ${s.round === 0 && appState.tvControlsOpen ? `
-                          <button onclick="kickPlayerFromLobby('${p.id}')" title="Kick player from lobby" class="px-2 py-0.5 rounded text-[10px] font-mono-code font-bold bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-800/60 transition">
+                          <button type="button" data-action="kick-player" data-pid="${escapeHtml(p.id)}" title="Kick player from lobby" class="px-2 py-0.5 rounded text-[10px] font-mono-code font-bold bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-800/60 transition">
                             ✕
                           </button>
                         ` : s.round === 3 ? (
@@ -5522,7 +6254,7 @@ function renderTVQRCode() {
 
   if (lastRenderedQRRoom === code && cachedQRDataUrl) {
     containers.forEach(c => {
-      c.innerHTML = `<img src="${cachedQRDataUrl}" alt="Join QR" width="${qrSize}" height="${qrSize}" />`;
+      c.innerHTML = `<img src="${cachedQRDataUrl}" alt="Join QR" class="w-full h-full object-contain block mx-auto" />`;
     });
     return;
   }
@@ -5639,7 +6371,7 @@ function renderMobileCorkboard(s, pack, activeSuspects) {
                       ${renderMugshotAvatar(pObj || { id: "npc_" + c.id, name: c.name }, false, "w-8 h-8")}
                       <div class="min-w-0 flex-1">
                         <div class="text-xs font-bold text-white leading-snug break-words">${escapeHtml(c.name)}</div>
-                        <div class="text-[10px] text-slate-400 leading-snug break-words mt-0.5">${pObj ? `Played by ${escapeHtml(pObj.name)} (PIN: ${escapeHtml(pObj.pinCode || '--')})` : escapeHtml(c.name)}</div>
+                        <div class="text-[10px] text-slate-400 leading-snug break-words mt-0.5">${pObj ? `Played by ${escapeHtml(pObj.name)}` : escapeHtml(c.name)}</div>
                       </div>
                     </div>
                     <button type="button" onclick="cycleCorkboardStatus('${c.id}')" class="shrink-0 text-[10px] font-mono-code font-bold px-2 py-1 rounded border ${meta.badge}">
@@ -5674,7 +6406,9 @@ function renderMobilePlayerView() {
   const pack = getEffectivePack(s.mysteryId, s.variantIndex);
   const me = (s.players && s.players[appState.playerId]) ? s.players[appState.playerId] : null;
   const myChar = (me && me.characterId) ? pack.characters.find(c => c.id === me.characterId) : null;
-  const isHost = me && me.isHost;
+  const isHost = isAuthorizedHostOrTV(s);
+  const hostCodeDisplay = getVisibleHostCode(s);
+  const transferTargets = Object.values(s.players || {}).filter(p => p && p.id !== appState.playerId && !p.id.startsWith("bot_"));
   const cluesList = getCluesList(s);
   const activeSuspects = getAssignedSuspectCharacters(s, pack);
   const myUnlockedIds = getPlayerUnlockedList(me);
@@ -5764,7 +6498,7 @@ function renderMobilePlayerView() {
                       ${p.isHost ? '<span class="text-[8px] font-mono-code bg-slate-800 text-amber-300 px-1 py-0.5 rounded shrink-0">HOST</span>' : ''}
                     </div>
                     ${isHost && p.id !== appState.playerId ? `
-                      <button type="button" onclick="kickPlayerFromLobby('${p.id}')" title="Remove player from lobby" class="shrink-0 px-2 py-0.5 rounded text-[10px] font-mono-code font-bold bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-800/60 transition">
+                      <button type="button" data-action="kick-player" data-pid="${escapeHtml(p.id)}" title="Remove player from lobby" class="shrink-0 px-2 py-0.5 rounded text-[10px] font-mono-code font-bold bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-800/60 transition">
                         ✕ Remove
                       </button>
                     ` : ''}
@@ -6042,7 +6776,7 @@ function renderMobilePlayerView() {
                 const isSelected = myVote === c.id;
                 const isAccomplicePartner = me && me.isAccomplice && c.role === "killer";
                 return `
-                  <button type="button" onclick="submitPlayerVote('${appState.playerId}', '${c.id}')" class="w-full text-left p-3 rounded-xl border text-xs font-semibold flex items-center justify-between gap-2 transition ${isSelected ? 'bg-amber-600 text-white border-amber-300 ring-2 ring-amber-400/50 shadow-lg' : 'bg-slate-950 text-slate-200 border-slate-800 hover:border-slate-600'}">
+                  <button type="button" data-action="cast-killer-vote" data-char-id="${escapeHtml(c.id)}" class="w-full text-left p-3 rounded-xl border text-xs font-semibold flex items-center justify-between gap-2 transition ${isSelected ? 'bg-amber-600 text-white border-amber-300 ring-2 ring-amber-400/50 shadow-lg' : 'bg-slate-950 text-slate-200 border-slate-800 hover:border-slate-600'}">
                     <span class="whitespace-normal break-words min-w-0 flex-1 leading-snug">${escapeHtml(c.name)} ${isAccomplicePartner ? '<strong class="text-purple-300 ml-1">(🤝 PARTNER)</strong>' : ''}</span>
                     <span class="shrink-0 font-mono-code text-[11px] px-2 py-0.5 rounded ${isSelected ? 'bg-black/30 text-amber-200 font-bold' : 'bg-slate-800 text-slate-300'}">${isSelected ? '✓ VOTED (Undo)' : 'Vote'}</span>
                   </button>
@@ -6069,7 +6803,7 @@ function renderMobilePlayerView() {
                   ${allPlayersList.map(p => {
                     const picked = s.awardVotes?.roleplayer?.[appState.playerId] === p.id;
                     return `
-                      <button type="button" onclick="submitAwardVote('${appState.playerId}', 'roleplayer', '${escapeHtml(p.id)}')" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition ${picked ? 'bg-amber-600 text-white border-amber-300 shadow' : 'bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-600'}">
+                      <button type="button" data-action="cast-award-vote" data-category="roleplayer" data-target-pid="${escapeHtml(p.id)}" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition ${picked ? 'bg-amber-600 text-white border-amber-300 shadow' : 'bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-600'}">
                         ${escapeHtml(p.name)} ${picked ? '✓' : ''}
                       </button>
                     `;
@@ -6082,7 +6816,7 @@ function renderMobilePlayerView() {
                   ${allPlayersList.map(p => {
                     const picked = s.awardVotes?.pokerface?.[appState.playerId] === p.id;
                     return `
-                      <button type="button" onclick="submitAwardVote('${appState.playerId}', 'pokerface', '${escapeHtml(p.id)}')" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition ${picked ? 'bg-fuchsia-600 text-white border-fuchsia-300 shadow' : 'bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-600'}">
+                      <button type="button" data-action="cast-award-vote" data-category="pokerface" data-target-pid="${escapeHtml(p.id)}" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition ${picked ? 'bg-fuchsia-600 text-white border-fuchsia-300 shadow' : 'bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-600'}">
                         ${escapeHtml(p.name)} ${picked ? '✓' : ''}
                       </button>
                     `;
@@ -6153,6 +6887,10 @@ function renderMobilePlayerView() {
                   <span class="min-w-0 leading-snug">🤝 Enable Secret Accomplice Role</span>
                   <input type="checkbox" ${s.accompliceEnabled ? 'checked' : ''} onchange="toggleAccompliceOption(this.checked)" class="w-4 h-4 accent-indigo-500 rounded shrink-0" />
                 </label>
+                <label class="flex items-center justify-between gap-2 bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 cursor-pointer">
+                  <span class="min-w-0 leading-snug">📺 TV Screen: Compact Fit (For Smaller TVs)</span>
+                  <input type="checkbox" ${isTvCompactActive() ? 'checked' : ''} onchange="toggleTvCompactFromHost(this.checked)" class="w-4 h-4 accent-amber-500 rounded shrink-0" />
+                </label>
               </div>
               <div class="flex gap-2 pt-1">
                 <button onclick="addDemoPlayersToFillSix()" class="flex-1 py-2.5 px-2 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700 leading-tight">
@@ -6187,11 +6925,30 @@ function renderMobilePlayerView() {
               <button onclick="resetRoomForNextGame()" class="w-full py-2.5 px-3 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow leading-snug">
                 🔄 Next Mystery in Same Room (Keep TV & Players)
               </button>
-              <button onclick="resetRoomForNextGame('${escapeHtml(s.mysteryId)}')" class="w-full py-2 px-3 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 leading-snug">
+              <button type="button" data-action="replay-mystery" data-mystery-id="${escapeHtml(s.mysteryId)}" class="w-full py-2 px-3 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 leading-snug">
                 🎲 Replay This Mystery (Rolls Unplayed Ending)
               </button>
             </div>
           `}
+          ${(hostCodeDisplay || transferTargets.length > 0) ? `
+            <div class="pt-2 border-t border-slate-800 space-y-2">
+              ${hostCodeDisplay ? `
+                <div class="flex items-center justify-between gap-2 bg-slate-950 border border-amber-500/30 rounded-xl px-3 py-2 text-xs">
+                  <span class="text-slate-300">🔑 Claim Host Code</span>
+                  <strong class="font-mono-code text-amber-300 tracking-widest">${escapeHtml(hostCodeDisplay)}</strong>
+                </div>
+              ` : ""}
+              ${transferTargets.length > 0 ? `
+                <label class="flex items-center justify-between gap-2 bg-slate-950 border border-slate-800 rounded-xl p-2 text-xs text-slate-200">
+                  <span class="shrink-0">🤝 Hand Off Host</span>
+                  <select onchange="if(this.value){ const v=this.value; this.value=''; transferHostToPlayer(v); }" class="min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-amber-300">
+                    <option value="">Select Player...</option>
+                    ${transferTargets.map(p => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join("")}
+                  </select>
+                </label>
+              ` : ""}
+            </div>
+          ` : ""}
         </div>
       ` : ""}
     </div>
@@ -6208,7 +6965,7 @@ let currentGuideStep = 0;
 const guideSteps = [
   {
     title: "1. Launch TV Display & Scan QR to Join (4–10 Players)",
-    desc: "Open this page on a Smart TV or laptop to launch the TV Display, or start a room directly from your phone. Players scan the TV QR code (or enter the 4-letter Room Code) to join and snap a Noir Mugshot.",
+    desc: "Open this page on a Smart TV or laptop to launch the TV Display, or start a room directly from your phone. Players scan the TV QR code (or enter the 6-char Room Code) to join and snap a Noir Mugshot.",
     mockup: `
       <div class="space-y-2.5">
         <div class="flex flex-wrap items-center justify-between gap-1.5 bg-slate-950 px-3 py-2 rounded-xl border border-indigo-500/60 text-xs">
@@ -6242,6 +6999,7 @@ const guideSteps = [
       "<strong>8 Mystery Cartridges × 3 Endings (24 Whodunits):</strong> Auto mode tracks which endings you've played so replays always pick a fresh Killer and solution.",
       "<strong>⏱ Game Length Presets:</strong> Choose <em>⚡ Quick (~25m)</em>, <em>🕵️ Standard (~45m)</em>, or <em>🍷 Extended (~60m)</em> in the Lobby.",
       "<strong>🔊 Use My Phone as TV Speaker:</strong> Hosts can toggle Phone Speaker mode ON to play all TV voice bulletins, ambient music, and blackout sirens through their phone or Bluetooth speaker.",
+      "<strong>📺 Small Screen / Compact TV Mode:</strong> Playing on a smaller TV (e.g. 40–48″, 720p, or high-zoom TV browser)? Tap <em>📺 Screen: Compact</em> in the TV header or TV controls to scale the QR code, room code, and suspects so everything fits 100% with zero clipping.",
       "<strong>🚪 Seamless Lobby Sync:</strong> Exiting on phone or closing the tab automatically removes your mugshot from the TV with zero polling. Hosts can also remove duplicate joins or bots from the lobby roster."
     ]
   },
@@ -6429,11 +7187,40 @@ function closeAppOverviewModal() {
   if (modal) modal.classList.add("hidden");
 }
 
+function handleAppRootDelegatedClick(ev) {
+  const target = ev && ev.target && typeof ev.target.closest === "function" ? ev.target.closest("[data-action]") : null;
+  if (!target) return;
+  const action = target.getAttribute("data-action");
+  if (action === "view-mugshot") {
+    const pid = target.getAttribute("data-pid");
+    const pname = target.getAttribute("data-pname") || "Suspect";
+    handleMugshotClick(pid, pname);
+  } else if (action === "kick-player") {
+    const pid = target.getAttribute("data-pid");
+    kickPlayerFromLobby(pid);
+  } else if (action === "cast-killer-vote") {
+    const charId = target.getAttribute("data-char-id");
+    if (charId) submitPlayerVote(appState.playerId, charId);
+  } else if (action === "cast-award-vote") {
+    const category = target.getAttribute("data-category");
+    const targetPid = target.getAttribute("data-target-pid");
+    if (category && targetPid) submitAwardVote(appState.playerId, category, targetPid);
+  } else if (action === "replay-mystery") {
+    const mid = target.getAttribute("data-mystery-id");
+    resetRoomForNextGame(mid);
+  }
+}
+
 /* ============================================================================
    9. URL PARAMETER BOOTSTRAP
    ============================================================================ */
 window.addEventListener("DOMContentLoaded", () => {
   localStorage.removeItem("mm_force_local");
+  const appRootEl = document.getElementById("appRoot");
+  if (appRootEl && !appRootDelegatedBound && typeof appRootEl.addEventListener === "function") {
+    appRootEl.addEventListener("click", handleAppRootDelegatedClick);
+    appRootDelegatedBound = true;
+  }
   initSyncBackend();
   const params = new URLSearchParams(window.location.search);
   const roomFromQR = params.get("room");
