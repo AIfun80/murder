@@ -389,6 +389,17 @@ function secureRandomChars(length, alphabet = "abcdefghijklmnopqrstuvwxyz0123456
   return out;
 }
 
+function shuffleArray(items) {
+  const arr = [...items];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = secureRandomInt(i + 1);
+    const tmp = arr[i];
+    arr[i] = arr[j];
+    arr[j] = tmp;
+  }
+  return arr;
+}
+
 function generateHostCode() {
   return String(1000 + secureRandomInt(9000));
 }
@@ -3887,7 +3898,7 @@ function subscribeToRoom(code, onFirstLoadCallback) {
         }
         if (!firstCallbackFired) {
           firstCallbackFired = true;
-          resetToHome();
+          resetToHome(true);
           const hasAuthUser = Boolean(firebaseAuth && firebaseAuth.currentUser && firebaseAuth.currentUser.uid);
           const diag = `auth=${firebaseAuth ? (hasAuthUser ? "ok" : "no-user") : "disabled"}`;
           const detail = errCode ? ` (${errCode}, ${diag})` : ` (${diag})`;
@@ -3967,7 +3978,7 @@ function handleIncomingSessionUpdate(newSession) {
     const wasInLobby = Boolean(appState.sessionData.players && appState.sessionData.players[appState.playerId]);
     const isStillInLobby = Boolean(newSession.players && newSession.players[appState.playerId]);
     if (wasInLobby && !isStillInLobby) {
-      resetToHome();
+      resetToHome(true);
       alert("You were removed from the lobby by the Host.");
       return;
     }
@@ -4191,7 +4202,7 @@ function joinExistingRoom(code, playerName, asMode) {
 
   subscribeToRoom(cleanCode, (existingVal) => {
     if (!existingVal) {
-      resetToHome();
+      resetToHome(true);
       alert(`Room "${cleanCode}" was not found or has expired. Check the TV screen and try again!`);
       return;
     }
@@ -4616,10 +4627,10 @@ function triggerKillerSabotage(actionType) {
       return alert("No other suspects in the room to plant a decoy clue on!");
     }
 
-    const targetPid = pool[Math.floor(Math.random() * pool.length)];
+    const targetPid = pool[secureRandomInt(pool.length)];
     const innocentChars = pack.characters.filter(c => c.role === "suspect");
     const framedChar = innocentChars.length > 0
-      ? innocentChars[Math.floor(Math.random() * innocentChars.length)]
+      ? innocentChars[secureRandomInt(innocentChars.length)]
       : pack.characters[1];
     const framedShort = framedChar ? framedChar.name.split("(")[0].trim() : "an unknown guest";
 
@@ -4628,7 +4639,7 @@ function triggerKillerSabotage(actionType) {
       `Intercepted Security Slip: Unverified witness claims ${framedShort} was seen tampering with the breaker latch five minutes before the alarm.`,
       `Overheard Whisper: A guest swore they saw ${framedShort} hiding a restricted item in their pocket right before the commotion.`
     ];
-    const chosenDetail = decoyTemplates[Math.floor(Math.random() * decoyTemplates.length)];
+    const chosenDetail = decoyTemplates[secureRandomInt(decoyTemplates.length)];
     const decoyId = "decoy_" + now;
     const decoyObj = {
       id: decoyId,
@@ -4769,7 +4780,7 @@ function pickNextVariantIndex(mysteryId, s) {
   if (candidates.length === 0) {
     candidates = [0, 1, 2];
   }
-  return candidates[Math.floor(Math.random() * candidates.length)];
+  return candidates[secureRandomInt(candidates.length)];
 }
 
 function recordPlayedVariant(mysteryId, variantIdx, s) {
@@ -4841,7 +4852,7 @@ function assignCharactersAndStartAct1() {
   const otherSuspects = pack.characters.filter(c => c.id !== victimChar.id && c.id !== killerChar.id && !variantKillerIds.has(c.id));
   const remainingSuspects = [...prioritySuspects, ...otherSuspects];
   const pool = [victimChar, killerChar, ...remainingSuspects.slice(0, Math.max(0, playerIds.length - 2))];
-  const shuffledChars = pool.sort(() => Math.random() - 0.5);
+  const shuffledChars = shuffleArray(pool);
 
   const usedPins = new Set();
   const innocentPlayerIds = [];
@@ -5187,8 +5198,10 @@ function releaseForensicClue(clueId) {
 function releaseCharacterSearchClue(charId, sourceLabel = "Detective Search") {
   const s = appState.sessionData;
   if (!s) return;
-  if (!isAuthorizedGhostOrHost(s)) {
-    return alert("Only the Ghost Investigator or Host/TV can broadcast character search files.");
+  const me = s.players && s.players[appState.playerId];
+  const canLeakUnlocked = Boolean(me && getPlayerUnlockedList(me).includes(charId));
+  if (!isAuthorizedGhostOrHost(s) && !canLeakUnlocked) {
+    return alert("Only the Ghost Investigator, Host/TV, or the detective who unlocked this suspect file can broadcast it.");
   }
   const pack = getEffectivePack(s.mysteryId, s.variantIndex);
   const charObj = pack.characters.find(c => c.id === charId);
@@ -5681,8 +5694,7 @@ setInterval(() => {
   if (!s.isPaused) {
     const pacingCfg = getPacingConfig(s.pacingPreset);
     if (s.round === 2 && !s.midTwistTriggered && !midTwistLatch && diffSec <= pacingCfg.twistAtSec && diffSec > 0) {
-      const me = s.players && s.players[appState.playerId];
-      if (appState.viewMode === "tv" || (me && me.isHost)) {
+      if (isAuthorizedHostOrTV(s)) {
         triggerMidRoundTwist();
       }
     }
@@ -5740,13 +5752,20 @@ function updateModeBadge() {
   }
 }
 
-function resetToHome() {
+function testTvVoice() {
+  soundFX.unlock();
+  const s = appState.sessionData;
+  const pack = s ? getEffectivePack(s.mysteryId, s.variantIndex || 0) : null;
+  const title = pack && pack.title ? pack.title : "Murder Mystery Party Engine";
+  soundFX.speakBulletin(`${title}. Smart TV Cloud voice and soundscape active.`);
+}
+
+function resetToHome(skipServerRemove = false) {
   isExplicitExit = true;
   soundFX.stopAll();
   const currentCode = appState.roomCode;
   const currentPid = appState.playerId;
   const s = appState.sessionData;
-  const isLobby = s && s.round === 0;
   const wasPlayer = appState.viewMode === "player";
 
   // 1. Detach listener and clear local state immediately so no incoming Firebase updates trigger alerts
@@ -5772,8 +5791,8 @@ function resetToHome() {
     window.history.replaceState({}, "", url.toString());
   } catch (e) {}
 
-  // 2. Remove player from lobby in Firebase
-  if (wasPlayer && currentCode && currentPid && (!s || s.round === 0)) {
+  // 2. Remove player from lobby in Firebase unless this reset was triggered by a kick/connection failure
+  if (!skipServerRemove && wasPlayer && currentCode && currentPid && (!s || s.round === 0)) {
     removePlayerFromLobby(currentCode, currentPid, s);
   }
 
@@ -6043,7 +6062,7 @@ function renderTVDashboard() {
             <span class="px-2.5 py-0.5 rounded-full text-[11px] font-mono-code font-bold uppercase border ${pack.badgeColor}">
               ${roundTitles[s.round] || "LIVE SESSION"}
             </span>
-            <button onclick="soundFX.unlock(); soundFX.speakBulletin('${pack.title.replace(/'/g, "")}. Smart TV Cloud voice and soundscape active.')" class="text-[11px] bg-slate-800 hover:bg-slate-700 text-emerald-300 px-2.5 py-0.5 rounded-lg border border-slate-700">
+            <button onclick="testTvVoice()" class="text-[11px] bg-slate-800 hover:bg-slate-700 text-emerald-300 px-2.5 py-0.5 rounded-lg border border-slate-700">
               🔊 Test TV Voice
             </button>
             <button onclick="soundFX.toggleAmbient()" class="text-[11px] bg-slate-800 hover:bg-slate-700 ${soundFX.ambientEnabled ? 'text-cyan-300 border-cyan-800' : 'text-slate-400 border-slate-700'} px-2.5 py-0.5 rounded-lg border">
@@ -6237,12 +6256,12 @@ function renderTVDashboard() {
               ` : s.round >= 2 ? `
                 <div class="shrink-0 bg-rose-950/50 border border-rose-800/80 rounded-xl px-3.5 py-2.5">
                   <div class="text-[11px] font-mono-code uppercase text-rose-300 font-bold mb-0.5">🚨 CRIME SCENE REPORT</div>
-                  <p class="text-xs lg:text-sm text-slate-100 leading-snug">${pack.crimeSceneReport}</p>
+                  <p class="text-xs lg:text-sm text-slate-100 leading-snug">${escapeHtml(pack.crimeSceneReport)}</p>
                 </div>
               ` : `
                 <div class="shrink-0 bg-indigo-950/40 border border-indigo-800/70 rounded-xl p-3 space-y-2">
                   <div class="text-[11px] font-mono-code uppercase text-indigo-300 font-bold">🍸 ACT I — THE CALM BEFORE THE MURDER</div>
-                  <p class="text-xs lg:text-sm text-slate-200 leading-snug">${pack.settingIntro}</p>
+                  <p class="text-xs lg:text-sm text-slate-200 leading-snug">${escapeHtml(pack.settingIntro)}</p>
                   <div class="bg-amber-950/50 border border-amber-500/70 rounded-xl p-2.5 flex items-center gap-2.5">
                     <span class="text-xl shrink-0">📱</span>
                     <div class="text-xs lg:text-sm font-bold text-amber-300 leading-snug">
