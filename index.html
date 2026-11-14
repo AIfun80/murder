@@ -2858,6 +2858,7 @@ try {
 let appState = {
   viewMode: "home",
   roomCode: "",
+  lastRoomCode: (safeStorageGet("mm_last_room", "")).toUpperCase().slice(0, 8),
   qrScannedRoom: false,
   authUid: null,
   playerId: (storedPlayerId && isValidId(storedPlayerId)) ? storedPlayerId : ("p_" + secureRandomChars(10)),
@@ -3760,6 +3761,8 @@ function subscribeToRoom(code, onFirstLoadCallback) {
     return;
   }
   appState.roomCode = upperCode;
+  appState.lastRoomCode = upperCode;
+  safeStorageSet("mm_last_room", upperCode);
   try {
     const url = new URL(window.location.href);
     url.searchParams.set("room", appState.roomCode);
@@ -5706,6 +5709,10 @@ function resetToHome(skipServerRemove = false) {
     secretHostRef.off();
     secretHostRef = null;
   }
+  if (currentCode && isValidRoomCode(currentCode)) {
+    appState.lastRoomCode = currentCode.toUpperCase();
+    safeStorageSet("mm_last_room", appState.lastRoomCode);
+  }
   appState.viewMode = "home";
   appState.roomCode = "";
   appState.sessionData = null;
@@ -5764,6 +5771,10 @@ function renderApp() {
 
   if (appState.viewMode === "home") {
     root.innerHTML = renderHomeLauncher();
+    const joinInputEl = document.getElementById("joinRoomCodeInput");
+    if (joinInputEl && activeId !== "joinRoomCodeInput") {
+      joinInputEl.value = appState.roomCode || appState.lastRoomCode || "";
+    }
   } else if (appState.viewMode === "tv") {
     root.innerHTML = renderTVDashboard();
     renderTVQRCode();
@@ -5830,11 +5841,11 @@ function renderHomeLauncher() {
               <div class="grid grid-cols-2 gap-2.5">
                 <div>
                   <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">Room Code</label>
-                  <input id="joinRoomCodeInput" type="text" maxlength="6" value="${escapeHtml(appState.roomCode || '')}" placeholder="e.g. K9X4M2" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 sm:p-3 text-base font-mono-code uppercase tracking-widest text-indigo-300 focus:outline-none focus:border-indigo-500" />
+                  <input id="joinRoomCodeInput" type="text" maxlength="6" value="${escapeHtml(appState.roomCode || appState.lastRoomCode || '')}" oninput="handleJoinCodeInput(this.value)" placeholder="e.g. K9X4M2" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 sm:p-3 text-base font-mono-code uppercase tracking-widest text-indigo-300 focus:outline-none focus:border-indigo-500" />
                 </div>
                 <div>
                   <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">First Name</label>
-                  <input id="joinPlayerNameInput" type="text" maxlength="20" value="${escapeHtml(appState.playerName || '')}" placeholder="Your name" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 sm:p-3 text-sm text-white focus:outline-none focus:border-indigo-500" />
+                  <input id="joinPlayerNameInput" type="text" maxlength="20" value="${escapeHtml(appState.playerName || '')}" oninput="handleJoinNameInput(this.value)" placeholder="Your name" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 sm:p-3 text-sm text-white focus:outline-none focus:border-indigo-500" />
                 </div>
               </div>
 
@@ -5905,6 +5916,14 @@ function handleStartPhoneHostNew() {
   appState.playerName = name.trim();
   safeStorageSet("mm_player_name", appState.playerName);
   createNewRoom(sel, "player");
+}
+
+function handleJoinCodeInput(val) {
+  appState.lastRoomCode = String(val || "").toUpperCase().slice(0, 8);
+}
+
+function handleJoinNameInput(val) {
+  appState.playerName = String(val || "").slice(0, 24);
 }
 
 function handleJoinPhone() {
