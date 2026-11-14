@@ -454,6 +454,11 @@ document.addEventListener("visibilitychange", () => {
     requestScreenWakeLock();
   }
 });
+window.addEventListener("pagehide", () => {
+  if (!isExplicitExit && appState.viewMode === "player" && appState.roomCode && appState.playerId && (!appState.sessionData || appState.sessionData.round === 0)) {
+    removePlayerFromLobby(appState.roomCode, appState.playerId, appState.sessionData);
+  }
+});
 
 /* ============================================================================
    2. ALL 7 MYSTERY CARTRIDGES (21 ENDINGS) + 3 KILLER VARIANTS + TIMED MID-ACT TWISTS
@@ -3980,15 +3985,15 @@ function handleIncomingSessionUpdate(newSession) {
     } catch (e) {}
   }
 
-  // Self-healing Host check: if no connected player owns hostUid/isHost in lobby, promote first connected player
+  // Self-healing Host check: if no connected human player owns hostUid/isHost in lobby, promote first human player
   if (newSession.round === 0 && newSession.players) {
-    const pList = Object.values(newSession.players);
+    const humanPlayers = Object.values(newSession.players).filter(p => p && !p.isBot);
     const activeHostPresent = Boolean(
-      (newSession.hostUid && newSession.players[newSession.hostUid]) ||
-      pList.some(p => p && p.isHost)
+      (newSession.hostUid && newSession.players[newSession.hostUid] && !newSession.players[newSession.hostUid].isBot) ||
+      humanPlayers.some(p => p.isHost)
     );
-    if (pList.length > 0 && !activeHostPresent) {
-      const firstPid = pList[0].id;
+    if (humanPlayers.length > 0 && !activeHostPresent) {
+      const firstPid = humanPlayers[0].id;
       if (appState.playerId === firstPid && firebaseDb && appState.roomCode) {
         firebaseDb.ref(`mystery_rooms/${appState.roomCode}`).update({
           hostUid: firstPid,
@@ -4220,10 +4225,10 @@ function registerPlayerInSession(pid, name) {
     return;
   }
 
-  // Self-healing Host check: if no active host exists, assign hostUid & isHost to this player
+  // Self-healing Host check: if no active human host exists, assign hostUid & isHost to this player
   const activeHostExists = Boolean(
-    (s && s.hostUid && playersMap[s.hostUid]) ||
-    Object.values(playersMap).some(p => p && p.isHost)
+    (s && s.hostUid && playersMap[s.hostUid] && !playersMap[s.hostUid].isBot) ||
+    Object.values(playersMap).some(p => p && p.isHost && !p.isBot)
   );
   const mugshotRaw = appState.playerMugshot || (existingPlayer && existingPlayer.mugshot) || "";
   const mugshotToUse = isValidMugshotDataUrl(mugshotRaw) ? mugshotRaw : "";
@@ -4295,7 +4300,8 @@ function removePlayerFromLobby(roomCode, pid, sessionSnapshot) {
   if (firebaseDb) {
     const updates = {};
     if (wasHost) {
-      const nextHostId = remainingPlayers.length > 0 ? remainingPlayers[0].id : null;
+      const nextHuman = remainingPlayers.find(p => !p.isBot);
+      const nextHostId = nextHuman ? nextHuman.id : null;
       updates.hostUid = nextHostId;
       if (nextHostId) {
         updates[`players/${nextHostId}/isHost`] = true;
@@ -4306,15 +4312,20 @@ function removePlayerFromLobby(roomCode, pid, sessionSnapshot) {
     updates[`players/${pid}`] = null;
     updates.updatedAt = Date.now();
     try {
-      firebaseDb.ref(`mystery_rooms/${roomCode}`).update(updates).catch(() => {});
-    } catch (e) {}
+      firebaseDb.ref(`mystery_rooms/${roomCode}`).update(updates).catch(() => {
+        try { playerRef.remove().catch(() => {}); } catch (e) {}
+      });
+    } catch (e) {
+      try { playerRef.remove().catch(() => {}); } catch (err) {}
+    }
   } else if (s && s.players) {
     const copy = JSON.parse(JSON.stringify(s));
     delete copy.players[pid];
     if (wasHost) {
-      copy.hostUid = remainingPlayers.length > 0 ? remainingPlayers[0].id : null;
-      if (remainingPlayers.length > 0 && copy.players[remainingPlayers[0].id]) {
-        copy.players[remainingPlayers[0].id].isHost = true;
+      const nextHuman = remainingPlayers.find(p => !p.isBot);
+      copy.hostUid = nextHuman ? nextHuman.id : null;
+      if (nextHuman && copy.players[nextHuman.id]) {
+        copy.players[nextHuman.id].isHost = true;
       }
     }
     writeRoomState(copy);
@@ -4324,9 +4335,16 @@ function removePlayerFromLobby(roomCode, pid, sessionSnapshot) {
   try {
     const dbUrl = activeDatabaseUrl || (DEFAULT_FIREBASE_CONFIG && DEFAULT_FIREBASE_CONFIG.databaseURL) || "";
     if (isValidFirebaseUrl(dbUrl) && typeof fetch === "function") {
-      const authSuffix = appState.cachedAuthToken ? `?auth=${encodeURIComponent(appState.cachedAuthToken)}` : "";
-      const restUrl = `${dbUrl.replace(/\/$/, "")}/mystery_rooms/${roomCode}/players/${pid}.json${authSuffix}`;
-      fetch(restUrl, { method: "DELETE", keepalive: true }).catch(() => {});
+      const sendRestDelete = (tok) => {
+        const authSuffix = tok ? `?auth=${encodeURIComponent(tok)}` : "";
+        const restUrl = `${dbUrl.replace(/\/$/, "")}/mystery_rooms/${roomCode}/players/${pid}.json${authSuffix}`;
+        fetch(restUrl, { method: "DELETE", keepalive: true }).catch(() => {});
+      };
+      if (appState.cachedAuthToken) {
+        sendRestDelete(appState.cachedAuthToken);
+      } else if (firebaseAuth && firebaseAuth.currentUser && typeof firebaseAuth.currentUser.getIdToken === "function") {
+        firebaseAuth.currentUser.getIdToken().then(sendRestDelete).catch(() => {});
+      }
     }
   } catch (e) {}
 }
@@ -5740,10 +5758,8 @@ function resetToHome() {
   appState.roomCode = "";
   appState.sessionData = null;
   appState.qrScannedRoom = false;
-  try {
-    localStorage.removeItem("mm_active_room");
-    localStorage.removeItem("mm_active_mode");
-  } catch (e) {}
+  safeStorageRemove("mm_active_room");
+  safeStorageRemove("mm_active_mode");
 
   try {
     const url = new URL(window.location.href);
@@ -5753,7 +5769,7 @@ function resetToHome() {
   } catch (e) {}
 
   // 2. Remove player from lobby in Firebase
-  if (wasPlayer && currentCode && currentPid && isLobby) {
+  if (wasPlayer && currentCode && currentPid && (!s || s.round === 0)) {
     removePlayerFromLobby(currentCode, currentPid, s);
   }
 
