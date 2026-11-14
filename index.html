@@ -3633,6 +3633,14 @@ function ensureFirebaseAuth(configToUse) {
         }
         firebaseAuth.signInAnonymously().catch((err) => {
           console.warn("Firebase Anonymous Auth unavailable:", err && err.message ? err.message : err);
+          if (typeof firebase !== "undefined" && firebase.auth && firebase.auth.Auth && firebase.auth.Auth.Persistence && typeof firebaseAuth.setPersistence === "function") {
+            return firebaseAuth.setPersistence(firebase.auth.Auth.Persistence.NONE)
+              .then(() => firebaseAuth.signInAnonymously())
+              .then((res) => { if (res && res.user) completeWithUser(res.user); })
+              .catch(() => {
+                if (!settled) { settled = true; resolve(null); }
+              });
+          }
           if (!settled) {
             settled = true;
             resolve(null);
@@ -3659,11 +3667,13 @@ function initSyncBackend() {
       try {
         const parsed = JSON.parse(savedConfigRaw);
         if (parsed && isValidFirebaseUrl(parsed.databaseURL)) {
-          configToUse = parsed;
+          const sameDefaultDb = parsed.databaseURL.replace(/\/$/, "") === DEFAULT_FIREBASE_CONFIG.databaseURL.replace(/\/$/, "");
+          configToUse = (!parsed.apiKey && sameDefaultDb) ? { ...DEFAULT_FIREBASE_CONFIG, ...parsed } : parsed;
         }
       } catch (e) {
         if (isValidFirebaseUrl(savedConfigRaw)) {
-          configToUse = { databaseURL: savedConfigRaw.trim() };
+          const sameDefaultDb = savedConfigRaw.trim().replace(/\/$/, "") === DEFAULT_FIREBASE_CONFIG.databaseURL.replace(/\/$/, "");
+          configToUse = sameDefaultDb ? { ...DEFAULT_FIREBASE_CONFIG } : { databaseURL: savedConfigRaw.trim() };
         }
       }
     } else if (DEFAULT_FIREBASE_CONFIG && isValidFirebaseUrl(DEFAULT_FIREBASE_CONFIG.databaseURL)) {
@@ -3677,9 +3687,9 @@ function initSyncBackend() {
       if (!firebase.apps.length) {
         firebase.initializeApp(configToUse);
       }
+      ensureFirebaseAuth(configToUse);
       firebaseDb = firebase.database();
       activeDatabaseUrl = configToUse.databaseURL;
-      ensureFirebaseAuth(configToUse);
       dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400";
       dot.title = "Connected to Firebase Realtime DB (" + configToUse.databaseURL + ")";
       autoPurgeExpiredRooms();
@@ -3829,15 +3839,20 @@ function subscribeToRoom(code, onFirstLoadCallback) {
         console.warn("Firebase room subscription error:", err);
         const errCode = (err && (err.code || err.message)) ? String(err.code || err.message) : "";
         const isPermErr = /permission/i.test(errCode);
-        if (!firstCallbackFired && isPermErr && firebaseAuth && !retriedAuth) {
+        if (!firstCallbackFired && isPermErr && !retriedAuth) {
           retriedAuth = true;
           try { if (roomRef) roomRef.off(); } catch (e) {}
-          const refreshPromise = firebaseAuth.currentUser && typeof firebaseAuth.currentUser.getIdToken === "function"
-            ? firebaseAuth.currentUser.getIdToken(true).catch(() => firebaseAuth.signInAnonymously())
-            : firebaseAuth.signInAnonymously();
-          Promise.resolve(refreshPromise)
+          const ensurePromise = firebaseAuth
+            ? (firebaseAuth.currentUser && typeof firebaseAuth.currentUser.getIdToken === "function"
+                ? firebaseAuth.currentUser.getIdToken(true).catch(() =>
+                    (typeof firebaseAuth.signOut === "function" ? firebaseAuth.signOut().catch(() => {}) : Promise.resolve())
+                      .then(() => firebaseAuth.signInAnonymously())
+                  )
+                : firebaseAuth.signInAnonymously())
+            : ensureFirebaseAuth(DEFAULT_FIREBASE_CONFIG);
+          Promise.resolve(ensurePromise)
             .then((res) => {
-              const user = firebaseAuth.currentUser || (res && res.user) || null;
+              const user = (firebaseAuth && firebaseAuth.currentUser) || (res && res.user) || null;
               if (user && user.uid) {
                 appState.authUid = user.uid;
                 appState.authTokenVerified = true;
@@ -3846,11 +3861,17 @@ function subscribeToRoom(code, onFirstLoadCallback) {
                   safeStorageSet("mm_player_id", user.uid);
                 }
               }
+              try {
+                if (firebaseDb && typeof firebaseDb.goOffline === "function" && typeof firebaseDb.goOnline === "function") {
+                  firebaseDb.goOffline();
+                  firebaseDb.goOnline();
+                }
+              } catch (e) {}
             })
             .catch(() => {})
             .finally(() => {
               if (!firstCallbackFired && appState.roomCode === upperCode) {
-                setTimeout(attachRoomListener, 250);
+                setTimeout(attachRoomListener, 400);
               }
             });
           return;
@@ -3858,14 +3879,25 @@ function subscribeToRoom(code, onFirstLoadCallback) {
         if (!firstCallbackFired) {
           firstCallbackFired = true;
           resetToHome();
-          const detail = errCode ? ` (${errCode})` : "";
+          const hasAuthUser = Boolean(firebaseAuth && firebaseAuth.currentUser && firebaseAuth.currentUser.uid);
+          const diag = `auth=${firebaseAuth ? (hasAuthUser ? "ok" : "no-user") : "disabled"}`;
+          const detail = errCode ? ` (${errCode}, ${diag})` : ` (${diag})`;
           alert(`Could not connect to room${detail}. Please refresh and try again.`);
         }
       });
     };
-    attachRoomListener();
-    if (appState.viewMode === "tv") {
-      subscribeToHostSecret(appState.roomCode);
+    if (firebaseAuth && !appState.authTokenVerified && authReadyPromise) {
+      authReadyPromise.then(() => {
+        if (!firstCallbackFired && appState.roomCode === upperCode) {
+          attachRoomListener();
+          if (appState.viewMode === "tv") subscribeToHostSecret(appState.roomCode);
+        }
+      });
+    } else {
+      attachRoomListener();
+      if (appState.viewMode === "tv") {
+        subscribeToHostSecret(appState.roomCode);
+      }
     }
   } else {
     const raw = safeStorageGet(`mm_room_${appState.roomCode}`);
