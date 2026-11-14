@@ -5735,6 +5735,7 @@ function resetToHome(skipServerRemove = false) {
   document.getElementById("timerBadge").classList.add("hidden");
   updateModeBadge();
   renderApp();
+  try { window.scrollTo(0, 0); } catch (e) {}
   syncPlayerIdToAuthUid(true);
 
   isExplicitExit = false;
@@ -5813,7 +5814,7 @@ function renderHomeLauncher() {
     <option value="${p.id}">${idx + 1}. ${escapeHtml(p.title)}</option>
   `).join("");
 
-  const highlightJoin = appState.qrScannedRoom;
+  const highlightJoin = Boolean(appState.qrScannedRoom || appState.lastRoomCode || appState.roomCode);
 
   return `
     <div class="max-w-5xl mx-auto w-full px-4 py-8 flex-1 flex flex-col justify-center">
