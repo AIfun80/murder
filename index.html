@@ -397,6 +397,10 @@ function isValidId(id) {
   return typeof id === "string" && /^[a-zA-Z0-9_-]{1,64}$/.test(id);
 }
 
+function isBotPlayer(p) {
+  return Boolean(p && (p.isBot || (typeof p.id === "string" && p.id.startsWith("bot_"))));
+}
+
 function isValidRoomCode(code) {
   return typeof code === "string" && /^[A-HJ-NP-Z2-9]{4,8}$/.test(code);
 }
@@ -3987,9 +3991,9 @@ function handleIncomingSessionUpdate(newSession) {
 
   // Self-healing Host check: if no connected human player owns hostUid/isHost in lobby, promote first human player
   if (newSession.round === 0 && newSession.players) {
-    const humanPlayers = Object.values(newSession.players).filter(p => p && !p.isBot);
+    const humanPlayers = Object.values(newSession.players).filter(p => p && !isBotPlayer(p));
     const activeHostPresent = Boolean(
-      (newSession.hostUid && newSession.players[newSession.hostUid] && !newSession.players[newSession.hostUid].isBot) ||
+      (newSession.hostUid && newSession.players[newSession.hostUid] && !isBotPlayer(newSession.players[newSession.hostUid])) ||
       humanPlayers.some(p => p.isHost)
     );
     if (humanPlayers.length > 0 && !activeHostPresent) {
@@ -4227,8 +4231,8 @@ function registerPlayerInSession(pid, name) {
 
   // Self-healing Host check: if no active human host exists, assign hostUid & isHost to this player
   const activeHostExists = Boolean(
-    (s && s.hostUid && playersMap[s.hostUid] && !playersMap[s.hostUid].isBot) ||
-    Object.values(playersMap).some(p => p && p.isHost && !p.isBot)
+    (s && s.hostUid && playersMap[s.hostUid] && !isBotPlayer(playersMap[s.hostUid])) ||
+    Object.values(playersMap).some(p => p && p.isHost && !isBotPlayer(p))
   );
   const mugshotRaw = appState.playerMugshot || (existingPlayer && existingPlayer.mugshot) || "";
   const mugshotToUse = isValidMugshotDataUrl(mugshotRaw) ? mugshotRaw : "";
@@ -4300,7 +4304,7 @@ function removePlayerFromLobby(roomCode, pid, sessionSnapshot) {
   if (firebaseDb) {
     const updates = {};
     if (wasHost) {
-      const nextHuman = remainingPlayers.find(p => !p.isBot);
+      const nextHuman = remainingPlayers.find(p => !isBotPlayer(p));
       const nextHostId = nextHuman ? nextHuman.id : null;
       updates.hostUid = nextHostId;
       if (nextHostId) {
@@ -4322,7 +4326,7 @@ function removePlayerFromLobby(roomCode, pid, sessionSnapshot) {
     const copy = JSON.parse(JSON.stringify(s));
     delete copy.players[pid];
     if (wasHost) {
-      const nextHuman = remainingPlayers.find(p => !p.isBot);
+      const nextHuman = remainingPlayers.find(p => !isBotPlayer(p));
       copy.hostUid = nextHuman ? nextHuman.id : null;
       if (nextHuman && copy.players[nextHuman.id]) {
         copy.players[nextHuman.id].isHost = true;
