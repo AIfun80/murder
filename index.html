@@ -65,86 +65,52 @@
 
     /* Smart TV Viewport-Lock (Zero Page Scroll on TV) */
     body.tv-mode-locked {
+      height: 100vh;
       height: 100dvh;
+      max-height: 100vh;
       max-height: 100dvh;
       overflow: hidden;
     }
+    body.tv-mode-locked #topBar {
+      flex-shrink: 0;
+      padding-top: 0.25rem;
+      padding-bottom: 0.25rem;
+    }
     body.tv-mode-locked #appRoot {
-      height: calc(100dvh - 45px);
-      max-height: calc(100dvh - 45px);
+      flex: 1 1 0%;
+      min-height: 0;
+      height: auto;
+      max-height: 100%;
       overflow: hidden;
     }
     .tvQrTarget img, .tvQrTarget canvas {
       width: 100% !important;
       height: 100% !important;
-      max-width: 100% !important;
-      max-height: 100% !important;
+      aspect-ratio: 1 / 1;
       object-fit: contain;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
       display: block;
       margin: 0 auto;
     }
 
-    /* TV Lobby QR code dynamic scaling based on viewport */
+    /* TV Lobby QR code dynamic scaling based on viewport (strictly 1:1 square) */
     #tvQrContainer {
-      width: clamp(140px, 28vh, 280px);
-      height: clamp(140px, 28vh, 280px);
-      max-width: 100%;
-      max-height: 100%;
+      --qr-size: clamp(180px, min(34vh, 26vw), 280px);
+      width: 220px;
+      height: 220px;
+      width: var(--qr-size);
+      height: var(--qr-size);
+      min-width: 130px;
+      min-height: 130px;
       aspect-ratio: 1 / 1;
-    }
-
-    /* Compact TV Mode class rules */
-    body.tv-mode-locked.tv-compact #tvQrContainer {
-      width: clamp(110px, 22vh, 190px);
-      height: clamp(110px, 22vh, 190px);
-      padding: 0.5rem !important;
-    }
-    body.tv-mode-locked.tv-compact .tv-header-bar {
-      padding-top: 0.35rem !important;
-      padding-bottom: 0.35rem !important;
-    }
-    body.tv-mode-locked.tv-compact .tv-header-title {
-      font-size: 1.15rem !important;
-    }
-    body.tv-mode-locked.tv-compact .tv-lobby-card {
-      padding: 0.75rem 1rem !important;
-      gap: 1rem !important;
-    }
-    body.tv-mode-locked.tv-compact .tv-room-code-display {
-      font-size: 2.25rem !important;
-      line-height: 1.15 !important;
-    }
-    body.tv-mode-locked.tv-compact .tv-setting-intro {
-      font-size: 0.75rem !important;
-      -webkit-line-clamp: 2 !important;
-      line-clamp: 2 !important;
-      padding-top: 0.35rem !important;
-    }
-    body.tv-mode-locked.tv-compact .tv-lobby-footer {
-      padding: 0.5rem 0.75rem !important;
-    }
-    body.tv-mode-locked.tv-compact .tv-roster-card {
-      padding: 0.35rem 0.5rem !important;
-    }
-    body.tv-mode-locked.tv-compact .tv-roster-avatar {
-      width: 2rem !important;
-      height: 2rem !important;
-    }
-    body.tv-mode-locked.tv-compact .tv-roster-name {
-      font-size: 0.75rem !important;
-    }
-    body.tv-mode-locked.tv-compact .tv-clue-card {
-      padding: 0.35rem 0.5rem !important;
-    }
-    body.tv-mode-locked.tv-compact .tv-hotseat-box {
-      padding: 0.5rem 0.75rem !important;
+      flex-shrink: 0;
     }
 
     /* Automatic responsive scaling for smaller TVs / resolutions (<= 820px height) */
     @media (max-height: 820px) {
       body.tv-mode-locked #tvQrContainer {
-        width: clamp(110px, 22vh, 190px);
-        height: clamp(110px, 22vh, 190px);
+        --qr-size: clamp(150px, min(32vh, 24vw), 220px);
         padding: 0.5rem !important;
       }
       body.tv-mode-locked .tv-header-bar {
@@ -160,7 +126,7 @@
       }
       body.tv-mode-locked .tv-room-code-display {
         font-size: 2.25rem !important;
-        line-height: 1.15 !important;
+        line-height: 1.1 !important;
       }
       body.tv-mode-locked .tv-setting-intro {
         font-size: 0.75rem !important;
@@ -169,7 +135,7 @@
         padding-top: 0.35rem !important;
       }
       body.tv-mode-locked .tv-lobby-footer {
-        padding: 0.5rem 0.75rem !important;
+        padding: 0.4rem 0.75rem !important;
       }
       body.tv-mode-locked .tv-roster-card {
         padding: 0.35rem 0.5rem !important;
@@ -189,28 +155,167 @@
       }
     }
 
-    /* Extra tight viewports (<= 640px height e.g. 720p TV with big on-screen address bar or high zoom) */
+    /* Extra tight viewports (<= 640px height e.g. Fire TV Silk 960x540, 720p TV with browser bar) */
     @media (max-height: 640px) {
       body.tv-mode-locked #tvQrContainer {
-        width: clamp(95px, 17vh, 140px);
-        height: clamp(95px, 17vh, 140px);
+        --qr-size: clamp(135px, min(32vh, 22vw), 185px);
+        min-width: 125px;
+        min-height: 125px;
         padding: 0.375rem !important;
       }
+      body.tv-mode-locked .tv-main-wrap {
+        padding: 0.375rem 0.5rem !important;
+        gap: 0.35rem !important;
+      }
+      body.tv-mode-locked .tv-grid-body {
+        gap: 0.5rem !important;
+      }
+      body.tv-mode-locked .tv-panel-box {
+        padding: 0.5rem 0.75rem !important;
+      }
+      body.tv-mode-locked .tv-header-bar {
+        padding: 0.25rem 0.65rem !important;
+      }
+      body.tv-mode-locked .tv-header-title {
+        font-size: 1rem !important;
+        line-height: 1.2 !important;
+      }
+      body.tv-mode-locked .tv-controls-bar {
+        padding: 0.25rem 0.65rem !important;
+        gap: 0.35rem !important;
+      }
+      body.tv-mode-locked .tv-lobby-card {
+        padding: 0.6rem 0.85rem !important;
+        gap: 0.85rem !important;
+      }
       body.tv-mode-locked .tv-room-code-display {
-        font-size: 1.875rem !important;
+        font-size: clamp(1.75rem, 4.5vh, 2.5rem) !important;
+        line-height: 1.05 !important;
       }
       body.tv-mode-locked .tv-setting-intro {
+        font-size: 0.7rem !important;
         -webkit-line-clamp: 2 !important;
         line-clamp: 2 !important;
         display: -webkit-box;
+        padding-top: 0.25rem !important;
+      }
+      body.tv-mode-locked .tv-lobby-footer {
+        padding: 0.3rem 0.65rem !important;
       }
       body.tv-mode-locked .tv-ticker-bar {
         padding-top: 0.2rem !important;
         padding-bottom: 0.2rem !important;
       }
+      body.tv-mode-locked .tv-suspicion-bar {
+        margin-bottom: 0.25rem !important;
+        padding: 0.2rem 0.5rem !important;
+      }
+      body.tv-mode-locked .tv-roster-grid {
+        gap: 0.35rem !important;
+      }
+      body.tv-mode-locked .tv-roster-card {
+        padding: 0.2rem 0.45rem !important;
+      }
+      body.tv-mode-locked .tv-roster-avatar {
+        width: 1.75rem !important;
+        height: 1.75rem !important;
+      }
+      body.tv-mode-locked .tv-roster-name {
+        font-size: 0.7rem !important;
+      }
+      body.tv-mode-locked .tv-roster-sub {
+        font-size: 0.6rem !important;
+        line-height: 1.05 !important;
+      }
       body.tv-mode-locked .tv-lobby-subtitle {
         display: none !important;
       }
+    }
+
+    @media (max-height: 520px) {
+      body.tv-mode-locked .tv-setting-intro {
+        display: none !important;
+      }
+    }
+
+    /* Compact TV Mode class rules (compacts surrounding chrome while keeping QR & Room Code prominent) */
+    body.tv-mode-locked.tv-compact #tvQrContainer {
+      --qr-size: clamp(135px, min(32vh, 24vw), 200px);
+      min-width: 125px;
+      min-height: 125px;
+      padding: 0.45rem !important;
+    }
+    body.tv-mode-locked.tv-compact .tv-main-wrap {
+      padding: 0.375rem 0.5rem !important;
+      gap: 0.35rem !important;
+    }
+    body.tv-mode-locked.tv-compact .tv-grid-body {
+      gap: 0.5rem !important;
+    }
+    body.tv-mode-locked.tv-compact .tv-panel-box {
+      padding: 0.5rem 0.75rem !important;
+    }
+    body.tv-mode-locked.tv-compact .tv-header-bar {
+      padding: 0.25rem 0.65rem !important;
+    }
+    body.tv-mode-locked.tv-compact .tv-header-title {
+      font-size: 1rem !important;
+      line-height: 1.2 !important;
+    }
+    body.tv-mode-locked.tv-compact .tv-controls-bar {
+      padding: 0.25rem 0.65rem !important;
+      gap: 0.35rem !important;
+    }
+    body.tv-mode-locked.tv-compact .tv-lobby-card {
+      padding: 0.6rem 0.85rem !important;
+      gap: 0.85rem !important;
+    }
+    body.tv-mode-locked.tv-compact .tv-room-code-display {
+      font-size: clamp(1.75rem, 4.5vh, 2.5rem) !important;
+      line-height: 1.05 !important;
+    }
+    body.tv-mode-locked.tv-compact .tv-setting-intro {
+      font-size: 0.7rem !important;
+      -webkit-line-clamp: 2 !important;
+      line-clamp: 2 !important;
+      padding-top: 0.25rem !important;
+    }
+    body.tv-mode-locked.tv-compact .tv-lobby-footer {
+      padding: 0.3rem 0.65rem !important;
+    }
+    body.tv-mode-locked.tv-compact .tv-ticker-bar {
+      padding-top: 0.2rem !important;
+      padding-bottom: 0.2rem !important;
+    }
+    body.tv-mode-locked.tv-compact .tv-suspicion-bar {
+      margin-bottom: 0.25rem !important;
+      padding: 0.2rem 0.5rem !important;
+    }
+    body.tv-mode-locked.tv-compact .tv-roster-grid {
+      gap: 0.35rem !important;
+    }
+    body.tv-mode-locked.tv-compact .tv-roster-card {
+      padding: 0.2rem 0.45rem !important;
+    }
+    body.tv-mode-locked.tv-compact .tv-roster-avatar {
+      width: 1.75rem !important;
+      height: 1.75rem !important;
+    }
+    body.tv-mode-locked.tv-compact .tv-roster-name {
+      font-size: 0.7rem !important;
+    }
+    body.tv-mode-locked.tv-compact .tv-roster-sub {
+      font-size: 0.6rem !important;
+      line-height: 1.05 !important;
+    }
+    body.tv-mode-locked.tv-compact .tv-clue-card {
+      padding: 0.35rem 0.5rem !important;
+    }
+    body.tv-mode-locked.tv-compact .tv-hotseat-box {
+      padding: 0.5rem 0.75rem !important;
+    }
+    body.tv-mode-locked.tv-compact .tv-lobby-subtitle {
+      display: none !important;
     }
 
     /* Fallback graceful scroll for ultra-squished windows (< 480px height) */
@@ -222,6 +327,16 @@
         height: auto !important;
         max-height: none !important;
         overflow-y: auto !important;
+      }
+      body.tv-mode-locked .tv-main-wrap {
+        height: auto !important;
+        min-height: 100%;
+        overflow: visible !important;
+      }
+      body.tv-mode-locked .tv-grid-body,
+      body.tv-mode-locked .tv-panel-box,
+      body.tv-mode-locked .tv-lobby-card {
+        overflow: visible !important;
       }
     }
 
@@ -6019,7 +6134,7 @@ function renderTVDashboard() {
   const hostCodeDisplay = getVisibleHostCode(s);
 
   const roundTitles = {
-    0: "PRE-GAME LOBBY — SCAN QR OR ENTER CODE TO JOIN",
+    0: "PRE-GAME LOBBY — SCAN QR TO JOIN",
     1: "ACT I: THE POWDER KEG — MINGLE & ESTABLISH MOTIVES",
     2: "ACT II: INVESTIGATION — PAT-DOWNS, FORENSICS & ALIBIS",
     3: "ACT III: THE TRIBUNAL — LOCK IN FINAL ACCUSATIONS",
@@ -6031,7 +6146,7 @@ function renderTVDashboard() {
   const clueGridCols = ultraDenseClues ? "grid-cols-2 xl:grid-cols-3" : "grid-cols-1 md:grid-cols-2";
 
   return `
-    <div class="h-full w-full flex flex-col justify-between p-2.5 lg:p-4 gap-2 overflow-hidden ${isBlackout ? 'blackout-flash' : 'bg-slate-950'} transition-colors duration-700">
+    <div class="tv-main-wrap h-full w-full flex flex-col justify-between p-2.5 lg:p-4 gap-2 overflow-hidden ${isBlackout ? 'blackout-flash' : 'bg-slate-950'} transition-colors duration-700">
       <!-- COMPACT ADAPTIVE TV HEADER -->
       <div class="tv-header-bar shrink-0 flex items-center justify-between gap-4 bg-slate-900/90 border border-slate-800 rounded-2xl px-4 py-2.5 shadow-xl">
         <div class="flex-1 min-w-0">
@@ -6051,13 +6166,9 @@ function renderTVDashboard() {
             <button onclick="toggleTvControls()" class="text-[11px] bg-slate-800 hover:bg-slate-700 ${appState.tvControlsOpen ? 'text-indigo-300 border-indigo-600' : 'text-slate-300 border-slate-700'} px-2.5 py-0.5 rounded-lg border">
               ⚙️ TV Host Controls ${appState.tvControlsOpen ? '▲' : '▼'}
             </button>
-            <button onclick="openAppOverviewModal()" title="View Rules & App Guide" class="flex items-center gap-1 text-[11px] bg-indigo-600/80 hover:bg-indigo-600 text-white font-bold px-2.5 py-0.5 rounded-lg border border-indigo-500 transition">
-              <svg class="w-3 h-3 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 16h-2v-2h2v2zm1.07-7.75l-.9.92C12.45 11.9 12 12.5 12 14h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H7c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.04-.42 1.99-1.07 2.75z"/></svg>
-              Guide
-            </button>
           </div>
           <div class="flex items-baseline gap-3 mt-1 truncate">
-            <h1 class="tv-header-title text-lg lg:text-2xl font-serif-title font-extrabold text-white truncate">
+            <h1 class="tv-header-title text-lg md:text-2xl font-serif-title font-extrabold text-white truncate">
               ${themeNumber}. ${escapeHtml(pack.title)}
             </h1>
             <p class="hidden xl:block text-xs text-slate-400 truncate">${escapeHtml(pack.subtitle)}</p>
@@ -6068,21 +6179,21 @@ function renderTVDashboard() {
           ${s.round >= 1 && s.round <= 3 ? `
             <div class="text-right border-r border-slate-800 pr-4">
               <div class="text-[10px] font-mono-code text-slate-400 uppercase leading-none">Phase Timer</div>
-              <div id="tvTimerDisplay" class="text-2xl lg:text-3xl font-mono-code font-bold leading-tight ${s.isPaused ? 'text-rose-400 animate-pulse' : 'text-amber-400'}">--:--</div>
+              <div id="tvTimerDisplay" class="text-2xl md:text-3xl font-mono-code font-bold leading-tight ${s.isPaused ? 'text-rose-400 animate-pulse' : 'text-amber-400'}">--:--</div>
             </div>
           ` : ""}
           ${s.round !== 0 ? `
             <div class="text-right">
               <div class="text-[10px] font-mono-code text-slate-400 uppercase leading-none">Room Code</div>
-              <div class="text-2xl lg:text-4xl font-mono-code font-extrabold text-indigo-400 tracking-widest leading-tight">${escapeHtml(s.roomCode)}</div>
+              <div class="text-2xl md:text-4xl font-mono-code font-extrabold text-indigo-400 tracking-widest leading-tight">${escapeHtml(s.roomCode)}</div>
             </div>
-            <div class="tvQrTarget w-14 h-14 lg:w-16 lg:h-16 bg-white p-1 rounded-xl shadow-md shrink-0 flex items-center justify-center"></div>
+            <div class="tvQrTarget w-14 h-14 md:w-16 md:h-16 bg-white p-1 rounded-xl shadow-md shrink-0 flex items-center justify-center"></div>
           ` : ""}
         </div>
       </div>
 
       ${appState.tvControlsOpen ? `
-        <div class="shrink-0 bg-slate-900/95 border border-indigo-700/80 rounded-xl px-4 py-2 flex flex-wrap items-center justify-between gap-2 shadow-lg">
+        <div class="tv-controls-bar shrink-0 bg-slate-900/95 border border-indigo-700/80 rounded-xl px-4 py-2 flex flex-wrap items-center justify-between gap-2 shadow-lg">
           <div class="flex flex-wrap items-center gap-2">
             <span class="text-xs font-mono-code uppercase font-bold text-indigo-300">📺 Backup TV Host Controls (Round ${s.round}/4)</span>
             ${hostCodeDisplay ? `<span class="text-[11px] font-mono-code font-bold px-2 py-0.5 rounded bg-amber-950/70 text-amber-300 border border-amber-600/60">🔑 Host Code: ${escapeHtml(hostCodeDisplay)}</span>` : ""}
@@ -6133,42 +6244,39 @@ function renderTVDashboard() {
       </div>
 
       <!-- MAIN 12-COL ADAPTIVE TV BODY (FITS 100% OF REMAINING VIEWPORT HEIGHT) -->
-      <div class="flex-1 min-h-0 grid grid-cols-12 gap-3 items-stretch overflow-hidden">
+      <div class="tv-grid-body flex-1 min-h-0 grid grid-cols-12 gap-3 items-stretch overflow-hidden">
         <!-- LEFT 7 COLUMNS: SCENE / EVIDENCE / SOLUTION -->
-        <div class="col-span-12 lg:col-span-7 bg-slate-900/80 border border-slate-800 rounded-2xl p-3.5 sm:p-4 flex flex-col justify-between min-h-0 overflow-hidden">
+        <div class="tv-panel-box col-span-12 sm:col-span-7 bg-slate-900/80 border border-slate-800 rounded-2xl p-3.5 sm:p-4 flex flex-col justify-between min-h-0 overflow-hidden">
           ${s.round === 0 ? `
-            <div class="flex-1 min-h-0 flex flex-col justify-between space-y-2.5 sm:space-y-3 overflow-hidden">
+            <div class="flex-1 min-h-0 flex flex-col justify-between gap-2 sm:gap-2.5 overflow-hidden">
               <div class="flex items-center justify-between gap-2 shrink-0">
-                <h2 class="text-base sm:text-lg font-bold text-white">Scan QR Code or Enter Room Code to Join</h2>
-                <span class="tv-lobby-subtitle text-[11px] sm:text-xs font-mono-code text-slate-400">Managed from Host Phone or TV Controls</span>
+                <h2 class="text-sm sm:text-base lg:text-lg font-bold text-white truncate">Scan QR Code or Enter Room Code to Join</h2>
+                <span class="text-xs font-mono-code px-2.5 py-0.5 rounded-lg bg-slate-950 text-indigo-300 border border-indigo-800 shrink-0">${playersList.length}/10 Joined</span>
               </div>
 
               <!-- EXTRA-LARGE LOBBY QR CODE & JOIN BANNER -->
-              <div class="tv-lobby-card flex-1 min-h-0 bg-slate-950/90 border-2 border-indigo-500/60 rounded-2xl p-3.5 sm:p-4 lg:p-5 flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 lg:gap-8 shadow-xl overflow-hidden">
-                <div id="tvQrContainer" class="tvQrTarget bg-white p-2 sm:p-2.5 lg:p-3 rounded-2xl shadow-2xl shrink-0 flex items-center justify-center"></div>
-                <div class="space-y-1.5 sm:space-y-2.5 text-center sm:text-left flex-1 min-w-0">
-                  <div>
-                    <div class="text-[10px] sm:text-xs lg:text-sm font-mono-code uppercase tracking-widest text-slate-400 font-bold">ROOM CODE</div>
-                    <div class="tv-room-code-display text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-mono-code font-extrabold text-indigo-400 tracking-widest leading-tight mt-0.5">${escapeHtml(s.roomCode)}</div>
+              <div class="tv-lobby-card flex-1 min-h-0 bg-slate-950/90 border-2 border-indigo-500/60 rounded-2xl p-3 sm:p-4 lg:p-5 flex flex-row items-center justify-center gap-4 sm:gap-6 lg:gap-8 shadow-xl overflow-hidden">
+                <div id="tvQrContainer" class="tvQrTarget bg-white p-2 sm:p-2.5 rounded-2xl shadow-2xl shrink-0 flex items-center justify-center"></div>
+                <div class="flex-1 min-w-0 max-h-full flex flex-col justify-center text-left space-y-1 sm:space-y-2 overflow-hidden">
+                  <div class="shrink-0">
+                    <div class="text-[10px] sm:text-xs font-mono-code uppercase tracking-widest text-slate-400 font-bold leading-none">ROOM CODE</div>
+                    <div class="tv-room-code-display text-3xl sm:text-5xl xl:text-6xl font-mono-code font-extrabold text-indigo-400 tracking-widest leading-none mt-1">${escapeHtml(s.roomCode)}</div>
                     ${hostCodeDisplay ? `
-                      <div class="mt-1 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-amber-950/60 border border-amber-500/40 text-[11px] font-mono-code text-amber-300">
+                      <div class="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-amber-950/60 border border-amber-500/40 text-[11px] font-mono-code text-amber-300">
                         <span>🔑 Claim Host Code:</span>
                         <strong class="tracking-widest font-extrabold">${escapeHtml(hostCodeDisplay)}</strong>
                       </div>
                     ` : ""}
                   </div>
-                  <p class="tv-setting-intro text-xs sm:text-sm lg:text-base text-slate-200 leading-relaxed pt-2 sm:pt-2.5 border-t border-slate-800/80 line-clamp-3 sm:line-clamp-4 lg:line-clamp-6">
+                  <p class="tv-setting-intro text-xs sm:text-sm lg:text-base text-slate-200 leading-snug pt-1.5 sm:pt-2 border-t border-slate-800/80 line-clamp-2 sm:line-clamp-3 xl:line-clamp-5 overflow-hidden">
                     "${escapeHtml(pack.settingIntro)}"
                   </p>
                 </div>
               </div>
 
-              <div class="tv-lobby-footer shrink-0 bg-indigo-950/30 border border-indigo-800/60 rounded-xl p-2.5 sm:p-3 flex items-center justify-between gap-3">
-                <div>
-                  <div class="text-xs sm:text-sm font-bold text-indigo-300">📱 Waiting for Host to Start Act I on Phone</div>
-                  <div class="text-[10px] sm:text-[11px] text-slate-400">Scan the QR code with your phone camera to join. Tap <strong>👑 Claim Host</strong> (enter the 4-digit Claim Host Code above if a Host is active) to control the game phases!</div>
-                </div>
-                <span class="text-xs font-mono-code px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg bg-slate-950 text-indigo-300 border border-indigo-800 shrink-0">${playersList.length}/10 Joined</span>
+              <div class="tv-lobby-footer shrink-0 bg-indigo-950/30 border border-indigo-800/60 rounded-xl px-3 py-1.5 flex items-center justify-between gap-2 text-[11px] sm:text-xs">
+                <span class="font-semibold text-indigo-200 truncate">📱 Scan QR with phone camera to join • Tap <strong class="text-amber-300">👑 Claim Host</strong> on phone to control phases</span>
+                <span class="tv-lobby-subtitle shrink-0 font-mono-code text-slate-400 hidden md:inline">Waiting for Host</span>
               </div>
             </div>
           ` : s.round === 4 ? `
@@ -6278,14 +6386,14 @@ function renderTVDashboard() {
         </div>
 
         <!-- RIGHT 5 COLUMNS: ZERO-SCROLL 2-COLUMN SUSPECT MUGSHOT ROSTER (ALL 10 FIT AT ONCE) -->
-        <div class="col-span-12 lg:col-span-5 bg-slate-900/80 border border-slate-800 rounded-2xl p-3.5 flex flex-col justify-between min-h-0 overflow-hidden">
+        <div class="tv-panel-box col-span-12 sm:col-span-5 bg-slate-900/80 border border-slate-800 rounded-2xl p-3.5 flex flex-col justify-between min-h-0 overflow-hidden">
           <div class="flex-1 min-h-0 flex flex-col overflow-hidden">
             <div class="shrink-0 flex items-center justify-between mb-1.5">
               <h2 class="text-sm lg:text-base font-bold text-white">Suspect Mugshot Roster (${playersList.length}/10)</h2>
               <span class="text-[11px] font-mono-code text-slate-400">${s.round === 3 ? `${Object.keys(s.votes || {}).length} Voted` : (s.accompliceEnabled ? "Accomplice Mode ON" : pacingCfg.shortLabel)}</span>
             </div>
             ${s.round >= 1 && s.round <= 3 ? `
-              <div class="shrink-0 mb-2 px-3 py-1.5 rounded-xl border flex items-center justify-between gap-2 ${highSuspicionCount > 0 ? 'bg-rose-950/60 border-rose-600/80 text-rose-200' : 'bg-slate-950/80 border-slate-800 text-slate-400'}">
+              <div class="tv-suspicion-bar shrink-0 mb-2 px-3 py-1.5 rounded-xl border flex items-center justify-between gap-2 ${highSuspicionCount > 0 ? 'bg-rose-950/60 border-rose-600/80 text-rose-200' : 'bg-slate-950/80 border-slate-800 text-slate-400'}">
                 <div class="flex items-center gap-1.5 text-xs font-mono-code font-bold">
                   <span>${highSuspicionCount > 0 ? '🔥' : '🕵️'}</span>
                   <span>${highSuspicionCount === 1 ? '1 suspect is highly suspicious' : `${highSuspicionCount} suspects are highly suspicious`}</span>
@@ -6298,7 +6406,7 @@ function renderTVDashboard() {
                 No players joined yet. Scan the QR code or open this page on your phone!
               </div>
             ` : `
-              <div class="flex-1 min-h-0 grid grid-cols-2 auto-rows-fr gap-2 overflow-hidden">
+              <div class="tv-roster-grid flex-1 min-h-0 grid grid-cols-2 auto-rows-fr gap-2 overflow-hidden">
                 ${playersList.map(p => {
                   const charObj = pack.characters.find(c => c.id === p.characterId);
                   const isGhost = s.round >= 2 && charObj && charObj.role === "victim";
@@ -6309,7 +6417,7 @@ function renderTVDashboard() {
                   return `
                     <div class="tv-roster-card flex items-center justify-between px-2.5 py-1.5 rounded-xl border min-w-0 overflow-hidden ${isGhost ? 'bg-rose-950/40 border-rose-700/70' : 'bg-slate-950/70 border-slate-800'}">
                       <div class="flex items-center gap-2 min-w-0 flex-1">
-                        ${renderMugshotAvatar(p, isGhost, "tv-roster-avatar w-9 h-9 lg:w-10 lg:h-10")}
+                        ${renderMugshotAvatar(p, isGhost, "tv-roster-avatar w-8 h-8 md:w-10 md:h-10")}
                         <div class="min-w-0 flex-1">
                           ${charObj ? `
                             <div class="flex items-center gap-1 flex-wrap leading-tight">
@@ -6317,7 +6425,7 @@ function renderTVDashboard() {
                               ${isGhost ? `<span class="text-[9px] font-mono-code bg-rose-600 text-white px-1 py-0.2 rounded font-bold shrink-0">👻 GHOST</span>` : ""}
                               ${s.round === 4 && p.isAccomplice ? `<span class="text-[9px] font-mono-code bg-purple-700 text-white px-1 py-0.2 rounded font-bold shrink-0">🤝 ALLY</span>` : ""}
                             </div>
-                            ${charRoleSub ? `<div class="text-[10px] text-slate-300 truncate leading-tight">${escapeHtml(charRoleSub)}</div>` : ""}
+                            ${charRoleSub ? `<div class="tv-roster-sub text-[10px] text-slate-300 truncate leading-tight">${escapeHtml(charRoleSub)}</div>` : ""}
                             <div class="flex items-center gap-1 mt-0.5 leading-none">
                               <span class="text-[10px] text-slate-400 truncate"><strong class="text-slate-200 font-medium">${escapeHtml(p.name)}</strong></span>
                               ${p.isHost ? `<span class="text-[8px] font-mono-code bg-slate-800 text-amber-300 px-1 py-0.5 rounded shrink-0">HOST</span>` : ""}
@@ -6327,7 +6435,7 @@ function renderTVDashboard() {
                               <span class="tv-roster-name font-bold text-xs lg:text-sm text-white truncate">${escapeHtml(p.name)}</span>
                               ${p.isHost ? `<span class="text-[8px] font-mono-code bg-slate-800 text-amber-300 px-1 py-0.5 rounded shrink-0">HOST</span>` : ""}
                             </div>
-                            <div class="text-[10px] text-slate-400 truncate">In Lobby...</div>
+                            <div class="tv-roster-sub text-[10px] text-slate-400 truncate">In Lobby...</div>
                           `}
                         </div>
                       </div>
@@ -6358,16 +6466,16 @@ function renderTVDashboard() {
       </div>
 
       ${s.isPaused && s.round >= 1 && s.round <= 3 ? `
-        <div class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center">
-          <div class="max-w-2xl w-full bg-slate-900 border-2 border-amber-500/80 rounded-3xl p-8 shadow-2xl space-y-6">
+        <div class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6 text-center">
+          <div class="max-w-2xl w-full bg-slate-900 border-2 border-amber-500/80 rounded-3xl p-4 sm:p-6 lg:p-8 shadow-2xl space-y-3 sm:space-y-5">
             <span class="inline-block px-4 py-1.5 rounded-full text-xs font-mono-code font-bold uppercase tracking-widest bg-amber-950 text-amber-300 border border-amber-600">
               ⏸ CASE PAUSED — HOST INTERMISSION
             </span>
-            <h2 class="text-3xl lg:text-5xl font-serif-title font-extrabold text-white">Bathroom & Drink Run Break</h2>
+            <h2 class="text-2xl sm:text-3xl lg:text-5xl font-serif-title font-extrabold text-white">Bathroom & Drink Run Break</h2>
 
             <!-- GIANT QR CODE & ROOM CODE ON PAUSE SCREEN -->
-            <div class="bg-slate-950 border border-slate-800 rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-center gap-6">
-              <div class="tvQrTarget w-52 h-52 bg-white p-3 rounded-2xl shadow-lg shrink-0 flex items-center justify-center"></div>
+            <div class="bg-slate-950 border border-slate-800 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6">
+              <div class="tvQrTarget w-36 h-36 sm:w-44 sm:h-44 lg:w-52 lg:h-52 bg-white p-2.5 sm:p-3 rounded-2xl shadow-lg shrink-0 flex items-center justify-center"></div>
               <div class="text-center sm:text-left space-y-1">
                 <div class="text-xs font-mono-code uppercase text-slate-400">Need to Reconnect Your Phone?</div>
                 <div class="text-sm text-slate-300">Scan the QR code or enter Room Code:</div>
@@ -6426,29 +6534,39 @@ function renderTVQRCode() {
   const qrSize = 280;
 
   if (lastRenderedQRRoom === code && cachedQRDataUrl) {
+    const markup = `<img src="${cachedQRDataUrl}" alt="Join QR" class="w-full h-full object-contain block mx-auto" />`;
     containers.forEach(c => {
-      c.innerHTML = `<img src="${cachedQRDataUrl}" alt="Join QR" class="w-full h-full object-contain block mx-auto" />`;
+      c.innerHTML = markup;
     });
     return;
   }
 
-  const firstContainer = containers[0];
-  firstContainer.innerHTML = "";
   const url = new URL(window.location.href);
   url.searchParams.delete("tv");
   url.searchParams.set("room", code);
-  new QRCode(firstContainer, {
+
+  const canUseTempDiv = typeof document.createElement === "function";
+  const maybeTemp = canUseTempDiv ? document.createElement("div") : null;
+  const targetEl = (maybeTemp && typeof maybeTemp.querySelector === "function") ? maybeTemp : containers[0];
+  targetEl.innerHTML = "";
+
+  const correctLevel = (QRCode.CorrectLevel && QRCode.CorrectLevel.M !== undefined)
+    ? QRCode.CorrectLevel.M
+    : (QRCode.CorrectLevel ? QRCode.CorrectLevel.L : 0);
+
+  new QRCode(targetEl, {
     text: url.toString(),
     width: qrSize,
     height: qrSize,
-    colorDark: "#090a0f",
+    colorDark: "#000000",
     colorLight: "#ffffff",
-    correctLevel: QRCode.CorrectLevel.L
+    correctLevel
   });
 
-  setTimeout(() => {
-    const canvas = firstContainer.querySelector("canvas");
-    const fallbackImg = firstContainer.querySelector("img");
+  const applyExtractedQR = () => {
+    if (!appState.sessionData || appState.sessionData.roomCode !== code) return false;
+    const canvas = targetEl.querySelector("canvas");
+    const fallbackImg = targetEl.querySelector("img");
     let dataUrl = null;
     if (canvas) {
       try { dataUrl = canvas.toDataURL(); } catch (e) {}
@@ -6459,11 +6577,22 @@ function renderTVQRCode() {
     if (dataUrl) {
       cachedQRDataUrl = dataUrl;
       lastRenderedQRRoom = code;
-      containers.forEach(c => {
-        c.innerHTML = `<img src="${cachedQRDataUrl}" alt="Join QR" width="${qrSize}" height="${qrSize}" />`;
+      const markup = `<img src="${cachedQRDataUrl}" alt="Join QR" class="w-full h-full object-contain block mx-auto" />`;
+      document.querySelectorAll("#tvQrContainer, .tvQrTarget").forEach(c => {
+        c.innerHTML = markup;
       });
+      return true;
     }
-  }, 60);
+    return false;
+  };
+
+  if (!applyExtractedQR()) {
+    const fallbackImg = targetEl.querySelector("img");
+    if (fallbackImg && !fallbackImg.onload) {
+      fallbackImg.onload = () => { applyExtractedQR(); };
+    }
+    setTimeout(() => { applyExtractedQR(); }, 50);
+  }
 }
 
 function renderMobileCorkboard(s, pack, activeSuspects) {
