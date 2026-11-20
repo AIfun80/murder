@@ -2529,36 +2529,248 @@ class SoundEngine {
     this.ambientEnabled = true;
     this.currentAmbientProfile = null;
     this.ambientGain = null;
+    this.voGain = null;
+    this.sfxGain = null;
     this.masterFilter = null;
     this.ambientNodes = [];
+    this.ambientSourceNode = null;
+    this.voSourceNode = null;
+    this.activeSfxNodes = new Set();
     this.ambientAudioEl = new Audio();
     this.ambientAudioEl.loop = true;
+    this.ambientAudioEl.preload = "auto";
     this.usingMp3Ambient = false;
+    this.usingWebAudioMp3Ambient = false;
     this.sfxAudioEl = new Audio();
+    this.sfxAudioEl.preload = "auto";
     this.noiseCache = {};
+    this.bufferCache = {};
+    this.bufferLoads = {};
+    this.failedAssets = new Set();
     this.audioPlayer = new Audio();
+    this.audioPlayer.preload = "auto";
     this.isSpeakingCloud = false;
+    this.isPlayingMajorVO = false;
+    this.isDuckingSfx = false;
+    this.isLoadingAmbient = false;
+    this.hasUnlockedCtx = false;
+    this.ambientSeq = 0;
+    this.voSeq = 0;
+    this.pendingAmbientProfile = null;
+    this.pendingVO = null;
+    this.pendingBulletinTimeout = null;
     this.escalationPhase = "NORMAL"; // "NORMAL" | "TENSION" | "PANIC"
     this.pulseInterval = null;
     this.isSabotageMuffled = false;
   }
 
-  unlock() {
+  initAudioGraph() {
     if (!this.ctx) {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return null;
       this.ctx = new AudioCtx();
     }
-    if (this.ctx && this.ctx.state === "suspended") {
-      this.ctx.resume();
+    const now = this.ctx.currentTime || 0;
+    if (!this.masterFilter && typeof this.ctx.createBiquadFilter === "function") {
+      this.masterFilter = this.ctx.createBiquadFilter();
+      this.masterFilter.type = "lowpass";
+      if (this.masterFilter.frequency) {
+        this.masterFilter.frequency.setValueAtTime(this.isSabotageMuffled ? 220 : 18000, now);
+      }
+      this.masterFilter.connect(this.ctx.destination);
     }
-    requestScreenWakeLock();
-    const silentWav = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
-    [this.audioPlayer, this.ambientAudioEl, this.sfxAudioEl].forEach(el => {
-      if (el.paused) {
-        el.src = silentWav;
-        el.play().catch(() => {});
+    if (!this.ambientGain && typeof this.ctx.createGain === "function") {
+      this.ambientGain = this.ctx.createGain();
+      if (this.ambientGain.gain) {
+        this.ambientGain.gain.setValueAtTime(0.001, now);
+      }
+      this.ambientGain.connect(this.masterFilter || this.ctx.destination);
+    }
+    if (!this.voGain && typeof this.ctx.createGain === "function") {
+      this.voGain = this.ctx.createGain();
+      if (this.voGain.gain) {
+        this.voGain.gain.setValueAtTime(1.0, now);
+      }
+      this.voGain.connect(this.ctx.destination);
+    }
+    if (!this.sfxGain && typeof this.ctx.createGain === "function") {
+      this.sfxGain = this.ctx.createGain();
+      if (this.sfxGain.gain) {
+        this.sfxGain.gain.setValueAtTime(0.85, now);
+      }
+      this.sfxGain.connect(this.ctx.destination);
+    }
+    return this.ctx;
+  }
+
+  resolveAudioUrl(filename) {
+    try {
+      if (typeof window !== "undefined" && window.location && window.location.href && window.location.href.startsWith("http")) {
+        return new URL(`./audio/${filename}`, window.location.href).toString();
+      }
+    } catch (e) {}
+    return `./audio/${filename}`;
+  }
+
+  canUseWebAudioFetch() {
+    if (!this.ctx || typeof this.ctx.decodeAudioData !== "function" || typeof fetch !== "function") {
+      return false;
+    }
+    try {
+      if (typeof window !== "undefined" && window.location && window.location.protocol === "file:") {
+        return false;
+      }
+    } catch (e) {}
+    return true;
+  }
+
+  decodeAudioDataSafe(arrayBuf) {
+    return new Promise((resolve, reject) => {
+      if (!this.ctx || typeof this.ctx.decodeAudioData !== "function") {
+        return reject(new Error("decodeAudioData unavailable"));
+      }
+      let settled = false;
+      const onOk = (buf) => { if (!settled) { settled = true; resolve(buf); } };
+      const onErr = (err) => { if (!settled) { settled = true; reject(err || new Error("decode failed")); } };
+      try {
+        const copy = arrayBuf.slice(0);
+        const maybePromise = this.ctx.decodeAudioData(copy, onOk, onErr);
+        if (maybePromise && typeof maybePromise.then === "function") {
+          maybePromise.then(onOk, onErr);
+        }
+      } catch (e) {
+        onErr(e);
       }
     });
+  }
+
+  loadAudioBuffer(filename) {
+    if (!isValidMp3Filename(filename)) {
+      return Promise.reject(new Error("Invalid audio filename"));
+    }
+    if (this.bufferCache[filename]) {
+      return Promise.resolve(this.bufferCache[filename]);
+    }
+    if (this.failedAssets.has(filename)) {
+      return Promise.reject(new Error("Asset previously failed: " + filename));
+    }
+    if (this.bufferLoads[filename]) {
+      return this.bufferLoads[filename];
+    }
+    this.initAudioGraph();
+    if (!this.canUseWebAudioFetch()) {
+      return Promise.reject(new Error("Web Audio fetch unavailable"));
+    }
+    const url = this.resolveAudioUrl(filename);
+    const loadPromise = fetch(url)
+      .then(res => {
+        if (!res || !res.ok) {
+          const err = new Error("HTTP " + (res ? res.status : "error") + " for " + filename);
+          err.httpStatus = res ? res.status : 0;
+          throw err;
+        }
+        return res.arrayBuffer();
+      })
+      .then(arr => this.decodeAudioDataSafe(arr))
+      .then(audioBuf => {
+        this.bufferCache[filename] = audioBuf;
+        delete this.bufferLoads[filename];
+        return audioBuf;
+      })
+      .catch(err => {
+        delete this.bufferLoads[filename];
+        if (err && (err.httpStatus === 404 || err.httpStatus === 410)) {
+          this.failedAssets.add(filename);
+        }
+        throw err;
+      });
+    this.bufferLoads[filename] = loadPromise;
+    return loadPromise;
+  }
+
+  preloadAudio(filename) {
+    if (!isValidMp3Filename(filename) || !this.canUseWebAudioFetch()) return;
+    this.loadAudioBuffer(filename).catch(() => {});
+  }
+
+  preloadForSession(s) {
+    if (!s || !isAudioOutputActive()) return;
+    this.initAudioGraph();
+    if (!this.canUseWebAudioFetch()) return;
+    const pack = getEffectivePack(s.mysteryId, s.variantIndex || 0);
+    const vNum = (s.variantIndex || 0) + 1;
+    this.preloadAudio("sfx_chime.mp3");
+    if (pack && pack.ambientProfile) {
+      this.preloadAudio(`ambient_${pack.ambientProfile}.mp3`);
+    }
+    if (s.round === 0) {
+      this.preloadAudio(`vo_${s.mysteryId}_intro.mp3`);
+    } else if (s.round === 1) {
+      this.preloadAudio(`sfx_${(pack && pack.soundProfile) || "siren"}.mp3`);
+      this.preloadAudio(`vo_${s.mysteryId}_v${vNum}_blackout.mp3`);
+    } else if (s.round === 2) {
+      this.preloadAudio(`vo_${s.mysteryId}_v${vNum}_twist.mp3`);
+    } else if (s.round === 3) {
+      this.preloadAudio("sfx_reveal.mp3");
+      this.preloadAudio(`vo_${s.mysteryId}_v${vNum}_solution.mp3`);
+    }
+  }
+
+  ensureUnlocked() {
+    this.initAudioGraph();
+    if (typeof navigator !== "undefined" && navigator.audioSession) {
+      try { navigator.audioSession.type = "playback"; } catch (e) {}
+    }
+    if (this.ctx) {
+      if (!this.hasUnlockedCtx && typeof this.ctx.createBuffer === "function" && typeof this.ctx.createBufferSource === "function") {
+        try {
+          const silentBuf = this.ctx.createBuffer(1, 1, 22050);
+          const src = this.ctx.createBufferSource();
+          src.buffer = silentBuf;
+          src.connect(this.ctx.destination);
+          src.start(0);
+          this.hasUnlockedCtx = true;
+        } catch (e) {}
+      }
+      if (this.ctx.state && this.ctx.state !== "running" && typeof this.ctx.resume === "function") {
+        try {
+          const p = this.ctx.resume();
+          if (p && typeof p.then === "function") {
+            p.then(() => this.flushPendingAudio()).catch(() => {});
+          }
+        } catch (e) {}
+      } else {
+        this.flushPendingAudio();
+      }
+    }
+    requestScreenWakeLock();
+  }
+
+  handleUserGestureUnlock() {
+    if (!isAudioOutputActive() && appState.viewMode !== "tv") {
+      // Still prime AudioContext if audio output could be enabled next tap
+      if (!this.ctx) return;
+    }
+    this.ensureUnlocked();
+  }
+
+  flushPendingAudio() {
+    if (!isAudioOutputActive() || this.isMuted) return;
+    if (this.ctx && this.ctx.state && this.ctx.state !== "running") return;
+    if (this.pendingAmbientProfile && this.ambientEnabled) {
+      const prof = this.pendingAmbientProfile;
+      this.pendingAmbientProfile = null;
+      this.startAmbient(prof);
+    }
+    if (this.pendingVO) {
+      const queued = this.pendingVO;
+      this.pendingVO = null;
+      this.speakBulletin(queued.text, queued.mp3Filename);
+    }
+  }
+
+  unlock() {
+    this.ensureUnlocked();
     this.playChime();
   }
 
@@ -2577,37 +2789,134 @@ class SoundEngine {
 
   startAmbient(profile = "space") {
     if (!this.ambientEnabled || this.isMuted) return;
-    if (this.currentAmbientProfile === profile && (this.ambientNodes.length > 0 || this.usingMp3Ambient)) return;
+    if (
+      this.currentAmbientProfile === profile &&
+      (this.isLoadingAmbient || this.ambientSourceNode || this.ambientNodes.length > 0 || this.usingMp3Ambient || this.pendingAmbientProfile === profile)
+    ) {
+      return;
+    }
     this.stopAmbient();
     this.currentAmbientProfile = profile;
+    const seq = ++this.ambientSeq;
+    this.initAudioGraph();
 
-    // Try ./audio/ambient_<profile>.mp3 first; fall back to Web Audio synth if missing
-    const mp3Path = `./audio/ambient_${profile}.mp3`;
-    this.ambientAudioEl.src = mp3Path;
-    this.ambientAudioEl.volume = this.isSpeakingCloud ? 0.04 : 0.22;
-    this.usingMp3Ambient = true;
-    this.ambientAudioEl.onerror = () => {
+    const filename = `ambient_${profile}.mp3`;
+    if (this.canUseWebAudioFetch() && isValidMp3Filename(filename)) {
+      this.isLoadingAmbient = true;
+      this.loadAudioBuffer(filename)
+        .then(audioBuf => {
+          if (seq !== this.ambientSeq || !this.ambientEnabled || this.isMuted) return;
+          const startNode = () => {
+            if (seq !== this.ambientSeq || !this.ambientEnabled || this.isMuted) return;
+            this.isLoadingAmbient = false;
+            if (this.ctx.state && this.ctx.state !== "running") {
+              this.pendingAmbientProfile = profile;
+              return;
+            }
+            this.initAudioGraph();
+            const src = this.ctx.createBufferSource();
+            src.buffer = audioBuf;
+            src.loop = true;
+            if (src.playbackRate) {
+              const rate = this.escalationPhase === "PANIC" ? 1.08 : (this.escalationPhase === "TENSION" ? 1.03 : 1.0);
+              src.playbackRate.value = rate;
+            }
+            src.connect(this.ambientGain);
+            const now = this.ctx.currentTime || 0;
+            const targetVol = (this.isSpeakingCloud || this.isPlayingMajorVO) ? 0.035 : (this.isSabotageMuffled ? 0.05 : 0.24);
+            if (this.ambientGain && this.ambientGain.gain) {
+              this.ambientGain.gain.cancelScheduledValues(now);
+              this.ambientGain.gain.setValueAtTime(0.001, now);
+              this.ambientGain.gain.linearRampToValueAtTime(targetVol, now + 0.8);
+            }
+            src.start(0);
+            this.ambientSourceNode = src;
+            this.usingMp3Ambient = true;
+            this.usingWebAudioMp3Ambient = true;
+          };
+
+          if (this.ctx.state && this.ctx.state !== "running") {
+            this.isLoadingAmbient = false;
+            this.pendingAmbientProfile = profile;
+            if (typeof this.ctx.resume === "function") {
+              this.ctx.resume().then(() => this.flushPendingAudio()).catch(() => {});
+            }
+          } else {
+            startNode();
+          }
+        })
+        .catch(() => {
+          if (seq !== this.ambientSeq || !this.ambientEnabled || this.isMuted) return;
+          this.isLoadingAmbient = false;
+          this.startAmbientHtmlFallback(profile, seq);
+        });
+      return;
+    }
+
+    this.startAmbientHtmlFallback(profile, seq);
+  }
+
+  startAmbientHtmlFallback(profile, seq) {
+    if (seq !== this.ambientSeq || !this.ambientEnabled || this.isMuted) return;
+    const filename = `ambient_${profile}.mp3`;
+    if (!isValidMp3Filename(filename)) {
+      this.startSynthAmbient(profile);
+      return;
+    }
+    let fallbackTriggered = false;
+    const triggerSynth = () => {
+      if (fallbackTriggered || seq !== this.ambientSeq || !this.ambientEnabled || this.isMuted) return;
+      fallbackTriggered = true;
       this.usingMp3Ambient = false;
+      this.usingWebAudioMp3Ambient = false;
       this.startSynthAmbient(profile);
     };
-    this.ambientAudioEl.play().catch(() => {
-      this.usingMp3Ambient = false;
-      this.startSynthAmbient(profile);
-    });
+
+    try {
+      this.ambientAudioEl.onerror = null;
+      this.ambientAudioEl.src = this.resolveAudioUrl(filename);
+      this.ambientAudioEl.loop = true;
+      this.ambientAudioEl.volume = (this.isSpeakingCloud || this.isPlayingMajorVO) ? 0.035 : 0.22;
+      this.usingMp3Ambient = true;
+      this.usingWebAudioMp3Ambient = false;
+      this.ambientAudioEl.onerror = triggerSynth;
+      const playPromise = this.ambientAudioEl.play();
+      if (playPromise && typeof playPromise.catch === "function") {
+        playPromise.catch((err) => {
+          if (seq !== this.ambientSeq) return;
+          if (err && err.name === "NotAllowedError") {
+            this.usingMp3Ambient = false;
+            this.pendingAmbientProfile = profile;
+            return;
+          }
+          if (err && err.name === "AbortError") {
+            this.usingMp3Ambient = false;
+            return;
+          }
+          triggerSynth();
+        });
+      }
+    } catch (e) {
+      triggerSynth();
+    }
   }
 
   startSynthAmbient(profile = "space") {
     if (!this.ctx || !this.ambientEnabled || this.isMuted) return;
-    const now = this.ctx.currentTime;
-    this.masterFilter = this.ctx.createBiquadFilter();
-    this.masterFilter.type = "lowpass";
-    this.masterFilter.frequency.setValueAtTime(this.isSabotageMuffled ? 240 : 18000, now);
-
-    this.ambientGain = this.ctx.createGain();
-    this.ambientGain.gain.setValueAtTime(0.01, now);
-    this.ambientGain.gain.linearRampToValueAtTime(0.14, now + 2.0);
-    this.ambientGain.connect(this.masterFilter);
-    this.masterFilter.connect(this.ctx.destination);
+    if (this.ctx.state && this.ctx.state !== "running") {
+      this.pendingAmbientProfile = profile;
+      return;
+    }
+    this.initAudioGraph();
+    const now = this.ctx.currentTime || 0;
+    if (this.masterFilter && this.masterFilter.frequency) {
+      this.masterFilter.frequency.setValueAtTime(this.isSabotageMuffled ? 240 : 18000, now);
+    }
+    if (this.ambientGain && this.ambientGain.gain) {
+      this.ambientGain.gain.cancelScheduledValues(now);
+      this.ambientGain.gain.setValueAtTime(0.01, now);
+      this.ambientGain.gain.linearRampToValueAtTime(0.14, now + 2.0);
+    }
 
     if (profile === "woods" || profile === "manor" || profile === "haunted") {
       const noise = this.ctx.createBufferSource();
@@ -2650,93 +2959,200 @@ class SoundEngine {
   }
 
   stopAmbient() {
-    if (this.usingMp3Ambient) {
-      try { this.ambientAudioEl.pause(); } catch (e) {}
-      this.usingMp3Ambient = false;
+    this.ambientSeq++;
+    this.isLoadingAmbient = false;
+    this.pendingAmbientProfile = null;
+    if (this.ambientSourceNode) {
+      try { this.ambientSourceNode.stop(); this.ambientSourceNode.disconnect(); } catch (e) {}
+      this.ambientSourceNode = null;
     }
+    try {
+      this.ambientAudioEl.onerror = null;
+      this.ambientAudioEl.pause();
+    } catch (e) {}
+    this.usingMp3Ambient = false;
+    this.usingWebAudioMp3Ambient = false;
     this.ambientNodes.forEach(n => {
       try { n.stop(); n.disconnect(); } catch (e) {}
     });
     this.ambientNodes = [];
-    if (this.ambientGain) {
-      try { this.ambientGain.disconnect(); } catch (e) {}
-      this.ambientGain = null;
-    }
-    if (this.masterFilter) {
-      try { this.masterFilter.disconnect(); } catch (e) {}
-      this.masterFilter = null;
+    if (this.ctx && this.ambientGain && this.ambientGain.gain) {
+      try {
+        const now = this.ctx.currentTime || 0;
+        this.ambientGain.gain.cancelScheduledValues(now);
+        this.ambientGain.gain.setValueAtTime(0.0001, now);
+      } catch (e) {}
     }
     this.stopEscalationPulse();
     this.escalationPhase = "NORMAL";
     this.currentAmbientProfile = null;
   }
 
+  stopVoiceover() {
+    this.voSeq++;
+    this.pendingVO = null;
+    if (this.voSourceNode) {
+      try {
+        this.voSourceNode.onended = null;
+        this.voSourceNode.stop();
+        this.voSourceNode.disconnect();
+      } catch (e) {}
+      this.voSourceNode = null;
+    }
+    try {
+      this.audioPlayer.onended = null;
+      this.audioPlayer.onerror = null;
+      this.audioPlayer.pause();
+      this.audioPlayer.currentTime = 0;
+    } catch (e) {}
+    if ("speechSynthesis" in window) {
+      try { window.speechSynthesis.cancel(); } catch (e) {}
+    }
+    this.isSpeakingCloud = false;
+    this.isPlayingMajorVO = false;
+  }
+
   stopAll() {
-    this.stopAmbient();
     if (this.pendingBulletinTimeout) {
       clearTimeout(this.pendingBulletinTimeout);
       this.pendingBulletinTimeout = null;
     }
-    this.isSpeakingCloud = false;
-    this.isPlayingMajorVO = false;
-    [this.audioPlayer, this.sfxAudioEl].forEach(el => {
+    this.stopAmbient();
+    this.stopVoiceover();
+    this.isDuckingSfx = false;
+    this.activeSfxNodes.forEach(src => {
       try {
-        el.onended = null;
-        el.onerror = null;
-        el.pause();
-        el.currentTime = 0;
+        src.onended = null;
+        src.stop();
+        src.disconnect();
       } catch (e) {}
     });
-    if ("speechSynthesis" in window) {
-      try { window.speechSynthesis.cancel(); } catch (e) {}
-    }
+    this.activeSfxNodes.clear();
+    try {
+      this.sfxAudioEl.onended = null;
+      this.sfxAudioEl.onerror = null;
+      this.sfxAudioEl.pause();
+      this.sfxAudioEl.currentTime = 0;
+    } catch (e) {}
   }
 
   toggleAmbient() {
     this.ambientEnabled = !this.ambientEnabled;
     if (!this.ambientEnabled) {
       this.stopAmbient();
-    } else if (appState.sessionData && appState.sessionData.round >= 1 && appState.sessionData.round <= 3) {
-      const pack = getEffectivePack(appState.sessionData.mysteryId, appState.sessionData.variantIndex);
-      this.startAmbient(pack.ambientProfile || "space");
+    } else {
+      this.ensureUnlocked();
+      if (isAudioOutputActive() && appState.sessionData && appState.sessionData.round >= 1 && appState.sessionData.round <= 3) {
+        const pack = getEffectivePack(appState.sessionData.mysteryId, appState.sessionData.variantIndex);
+        this.startAmbient((pack && pack.ambientProfile) || "space");
+      }
     }
     renderApp();
   }
 
   duckAmbient(shouldDuck) {
-    if (this.usingMp3Ambient && this.ambientAudioEl) {
+    if (this.usingMp3Ambient && !this.usingWebAudioMp3Ambient && this.ambientAudioEl) {
       this.ambientAudioEl.volume = shouldDuck ? 0.03 : (this.ambientEnabled ? 0.22 : 0.0);
     }
-    if (!this.ctx || !this.ambientGain) return;
-    const now = this.ctx.currentTime;
-    const target = shouldDuck ? 0.02 : (this.ambientEnabled ? 0.14 : 0.0);
+    if (!this.ctx || !this.ambientGain || !this.ambientGain.gain) return;
+    const now = this.ctx.currentTime || 0;
+    const normalLevel = this.usingWebAudioMp3Ambient ? (this.isSabotageMuffled ? 0.05 : 0.24) : (this.isSabotageMuffled ? 0.04 : 0.14);
+    const target = shouldDuck ? 0.035 : (this.ambientEnabled ? normalLevel : 0.0001);
     this.ambientGain.gain.cancelScheduledValues(now);
-    this.ambientGain.gain.setTargetAtTime(target, now, 0.25);
+    this.ambientGain.gain.setTargetAtTime(target, now, 0.2);
   }
 
   playMp3OrFallback(mp3File, fallbackFn, durationMs = 2500) {
-    if (this.isMuted) return;
+    if (this.isMuted || !isValidMp3Filename(mp3File)) return;
+    this.initAudioGraph();
+    this.isDuckingSfx = true;
     this.duckAmbient(true);
-    this.sfxAudioEl.src = `./audio/${mp3File}`;
-    this.sfxAudioEl.volume = 0.85;
-    let fallbackCalled = false;
+
+    const finishDuck = () => {
+      this.isDuckingSfx = false;
+      if (!this.isSpeakingCloud && !this.isPlayingMajorVO) {
+        this.duckAmbient(false);
+      }
+    };
+
     const triggerFallback = () => {
-      if (fallbackCalled) return;
-      fallbackCalled = true;
-      fallbackFn();
-      setTimeout(() => { if (!this.isSpeakingCloud) this.duckAmbient(false); }, durationMs);
+      if (fallbackFn) fallbackFn();
+      setTimeout(finishDuck, durationMs);
     };
-    this.sfxAudioEl.onended = () => {
-      if (!this.isSpeakingCloud) this.duckAmbient(false);
+
+    if (this.canUseWebAudioFetch()) {
+      this.loadAudioBuffer(mp3File)
+        .then(audioBuf => {
+          if (this.isMuted) {
+            finishDuck();
+            return;
+          }
+          const playBuf = () => {
+            if (this.ctx.state && this.ctx.state !== "running") {
+              finishDuck();
+              return;
+            }
+            const src = this.ctx.createBufferSource();
+            src.buffer = audioBuf;
+            src.connect(this.sfxGain || this.ctx.destination);
+            this.activeSfxNodes.add(src);
+            src.onended = () => {
+              this.activeSfxNodes.delete(src);
+              finishDuck();
+            };
+            src.start(0);
+          };
+          if (this.ctx.state && this.ctx.state !== "running" && typeof this.ctx.resume === "function") {
+            this.ctx.resume().then(playBuf).catch(finishDuck);
+          } else {
+            playBuf();
+          }
+        })
+        .catch(() => {
+          this.playSfxHtmlFallback(mp3File, triggerFallback, finishDuck);
+        });
+      return;
+    }
+
+    this.playSfxHtmlFallback(mp3File, triggerFallback, finishDuck);
+  }
+
+  playSfxHtmlFallback(mp3File, triggerFallback, finishDuck) {
+    let settled = false;
+    const handleFailure = () => {
+      if (settled) return;
+      settled = true;
+      triggerFallback();
     };
-    this.sfxAudioEl.onerror = triggerFallback;
-    this.sfxAudioEl.play().catch(triggerFallback);
+    try {
+      this.sfxAudioEl.onended = null;
+      this.sfxAudioEl.onerror = null;
+      this.sfxAudioEl.src = this.resolveAudioUrl(mp3File);
+      this.sfxAudioEl.volume = 0.85;
+      this.sfxAudioEl.onended = () => {
+        settled = true;
+        finishDuck();
+      };
+      this.sfxAudioEl.onerror = handleFailure;
+      const playPromise = this.sfxAudioEl.play();
+      if (playPromise && typeof playPromise.catch === "function") {
+        playPromise.catch((err) => {
+          if (err && (err.name === "NotAllowedError" || err.name === "AbortError")) {
+            finishDuck();
+            return;
+          }
+          handleFailure();
+        });
+      }
+    } catch (e) {
+      handleFailure();
+    }
   }
 
   playChime() {
     this.playMp3OrFallback("sfx_chime.mp3", () => {
-      if (!this.ctx) return;
-      const now = this.ctx.currentTime;
+      if (!this.ctx || (this.ctx.state && this.ctx.state !== "running")) return;
+      const now = this.ctx.currentTime || 0;
       [440, 554.37, 659.25, 880].forEach((freq, idx) => {
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
@@ -2754,8 +3170,8 @@ class SoundEngine {
 
   playBlackoutFX(profile = "siren") {
     this.playMp3OrFallback(`sfx_${profile}.mp3`, () => {
-      if (!this.ctx) return;
-      const now = this.ctx.currentTime;
+      if (!this.ctx || (this.ctx.state && this.ctx.state !== "running")) return;
+      const now = this.ctx.currentTime || 0;
       for (let i = 0; i < 3; i++) {
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
@@ -2774,8 +3190,8 @@ class SoundEngine {
 
   playDrumrollAndReveal() {
     this.playMp3OrFallback("sfx_reveal.mp3", () => {
-      if (!this.ctx) return;
-      const now = this.ctx.currentTime;
+      if (!this.ctx || (this.ctx.state && this.ctx.state !== "running")) return;
+      const now = this.ctx.currentTime || 0;
       [261.63, 329.63, 392.00, 523.25, 783.99].forEach((f, i) => {
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
@@ -2807,44 +3223,80 @@ class SoundEngine {
       utter.pitch = 0.85;
       const finishSpeech = () => {
         this.isSpeakingCloud = false;
-        this.duckAmbient(false);
+        if (!this.isDuckingSfx) this.duckAmbient(false);
       };
       utter.onend = finishSpeech;
       utter.onerror = finishSpeech;
       window.speechSynthesis.speak(utter);
     } catch (e) {
       this.isSpeakingCloud = false;
-      this.duckAmbient(false);
+      if (!this.isDuckingSfx) this.duckAmbient(false);
     }
   }
 
   speakBulletin(text, mp3Filename = null) {
     if (this.isMuted || (!text && !mp3Filename)) return;
     if (mp3Filename && isValidMp3Filename(mp3Filename)) {
+      this.stopVoiceover();
+      const seq = ++this.voSeq;
       this.isSpeakingCloud = true;
       this.isPlayingMajorVO = true;
       this.duckAmbient(true);
-      this.audioPlayer.src = `./audio/${mp3Filename}`;
-      this.audioPlayer.onended = () => {
-        this.isSpeakingCloud = false;
-        this.isPlayingMajorVO = false;
-        this.duckAmbient(false);
-      };
-      this.audioPlayer.onerror = () => {
-        this.isSpeakingCloud = false;
-        this.isPlayingMajorVO = false;
-        this.speakBulletin(text, null);
-      };
-      this.audioPlayer.play().catch(() => {
-        this.isSpeakingCloud = false;
-        this.isPlayingMajorVO = false;
-        this.speakBulletin(text, null);
-      });
+      this.initAudioGraph();
+
+      if (this.canUseWebAudioFetch()) {
+        this.loadAudioBuffer(mp3Filename)
+          .then(audioBuf => {
+            if (seq !== this.voSeq || this.isMuted) return;
+            const playNode = () => {
+              if (seq !== this.voSeq || this.isMuted) return;
+              if (this.ctx.state && this.ctx.state !== "running") {
+                this.pendingVO = { text, mp3Filename };
+                this.isSpeakingCloud = false;
+                this.isPlayingMajorVO = false;
+                if (!this.isDuckingSfx) this.duckAmbient(false);
+                return;
+              }
+              this.initAudioGraph();
+              const src = this.ctx.createBufferSource();
+              src.buffer = audioBuf;
+              src.connect(this.voGain || this.ctx.destination);
+              src.onended = () => {
+                if (seq !== this.voSeq) return;
+                this.voSourceNode = null;
+                this.isSpeakingCloud = false;
+                this.isPlayingMajorVO = false;
+                if (!this.isDuckingSfx) this.duckAmbient(false);
+              };
+              this.voSourceNode = src;
+              src.start(0);
+            };
+
+            if (this.ctx.state && this.ctx.state !== "running") {
+              this.pendingVO = { text, mp3Filename };
+              this.isSpeakingCloud = false;
+              this.isPlayingMajorVO = false;
+              if (!this.isDuckingSfx) this.duckAmbient(false);
+              if (typeof this.ctx.resume === "function") {
+                this.ctx.resume().then(() => this.flushPendingAudio()).catch(() => {});
+              }
+            } else {
+              playNode();
+            }
+          })
+          .catch(() => {
+            if (seq !== this.voSeq || this.isMuted) return;
+            this.playVoiceoverHtmlFallback(text, mp3Filename, seq);
+          });
+        return;
+      }
+
+      this.playVoiceoverHtmlFallback(text, mp3Filename, seq);
       return;
     }
 
     // Do not interrupt a major pre-recorded MP3 narration with minor clue TTS
-    if (this.isPlayingMajorVO && !this.audioPlayer.paused) {
+    if (this.isPlayingMajorVO && (this.voSourceNode || !this.audioPlayer.paused)) {
       return;
     }
 
@@ -2853,6 +3305,52 @@ class SoundEngine {
     }
     this.fallbackNativeSpeech(text);
   }
+
+  playVoiceoverHtmlFallback(text, mp3Filename, seq) {
+    if (seq !== this.voSeq || this.isMuted) return;
+    try {
+      this.audioPlayer.onended = null;
+      this.audioPlayer.onerror = null;
+      this.audioPlayer.src = this.resolveAudioUrl(mp3Filename);
+      this.audioPlayer.volume = 1.0;
+      this.audioPlayer.onended = () => {
+        if (seq !== this.voSeq) return;
+        this.isSpeakingCloud = false;
+        this.isPlayingMajorVO = false;
+        if (!this.isDuckingSfx) this.duckAmbient(false);
+      };
+      this.audioPlayer.onerror = () => {
+        if (seq !== this.voSeq) return;
+        this.isSpeakingCloud = false;
+        this.isPlayingMajorVO = false;
+        this.speakBulletin(text, null);
+      };
+      const playPromise = this.audioPlayer.play();
+      if (playPromise && typeof playPromise.catch === "function") {
+        playPromise.catch((err) => {
+          if (seq !== this.voSeq) return;
+          this.isSpeakingCloud = false;
+          this.isPlayingMajorVO = false;
+          if (err && err.name === "NotAllowedError") {
+            this.pendingVO = { text, mp3Filename };
+            if (!this.isDuckingSfx) this.duckAmbient(false);
+            return;
+          }
+          if (err && err.name === "AbortError") {
+            if (!this.isDuckingSfx) this.duckAmbient(false);
+            return;
+          }
+          this.speakBulletin(text, null);
+        });
+      }
+    } catch (e) {
+      if (seq !== this.voSeq) return;
+      this.isSpeakingCloud = false;
+      this.isPlayingMajorVO = false;
+      this.speakBulletin(text, null);
+    }
+  }
+
   // --- DYNAMIC AUDIO ESCALATION & BLACKOUT MUFFLE ---
   evaluateEscalation(remainingSeconds, isPaused, isBlackoutSabotage, round) {
     if (this.isMuted || !this.ambientEnabled || round < 1 || round > 3) {
@@ -2863,35 +3361,38 @@ class SoundEngine {
 
     if (isPaused) {
       this.stopEscalationPulse();
-      if (this.usingMp3Ambient && this.ambientAudioEl && !this.ambientAudioEl.paused) {
+      if (this.usingMp3Ambient && !this.usingWebAudioMp3Ambient && this.ambientAudioEl && !this.ambientAudioEl.paused) {
         try { this.ambientAudioEl.pause(); } catch (e) {}
       }
-      if (this.ctx && this.ambientGain) {
-        this.ambientGain.gain.setTargetAtTime(0.001, this.ctx.currentTime, 0.2);
+      if (this.ctx && this.ambientGain && this.ambientGain.gain) {
+        this.ambientGain.gain.setTargetAtTime(0.0001, this.ctx.currentTime || 0, 0.2);
       }
       return;
     } else {
-      if (this.usingMp3Ambient && this.ambientAudioEl && this.ambientAudioEl.paused) {
+      if (this.usingMp3Ambient && !this.usingWebAudioMp3Ambient && this.ambientAudioEl && this.ambientAudioEl.paused) {
         this.ambientAudioEl.play().catch(() => {});
       }
-      if (this.ctx && this.ambientGain && !this.isSpeakingCloud) {
-        this.ambientGain.gain.setTargetAtTime(isBlackoutSabotage ? 0.04 : 0.14, this.ctx.currentTime, 0.3);
+      if (this.ctx && this.ambientGain && this.ambientGain.gain && !this.isSpeakingCloud && !this.isPlayingMajorVO && !this.isDuckingSfx) {
+        const baseVol = this.usingWebAudioMp3Ambient ? 0.24 : 0.14;
+        this.ambientGain.gain.setTargetAtTime(isBlackoutSabotage ? 0.05 : baseVol, this.ctx.currentTime || 0, 0.3);
       }
     }
 
     this.isSabotageMuffled = Boolean(isBlackoutSabotage);
-    if (this.ctx && this.masterFilter) {
+    if (this.ctx && this.masterFilter && this.masterFilter.frequency) {
       const targetCutoff = isBlackoutSabotage ? 220 : (remainingSeconds <= 60 ? 2800 : (remainingSeconds <= 180 ? 1800 : 18000));
-      this.masterFilter.frequency.setTargetAtTime(targetCutoff, this.ctx.currentTime, 0.25);
+      this.masterFilter.frequency.setTargetAtTime(targetCutoff, this.ctx.currentTime || 0, 0.25);
     }
-    if (this.usingMp3Ambient && this.ambientAudioEl && !this.isSpeakingCloud) {
+    if (this.usingMp3Ambient && !this.usingWebAudioMp3Ambient && this.ambientAudioEl && !this.isSpeakingCloud && !this.isPlayingMajorVO && !this.isDuckingSfx) {
       this.ambientAudioEl.volume = isBlackoutSabotage ? 0.05 : 0.22;
     }
 
     if (remainingSeconds <= 60 && remainingSeconds > 0) {
       if (this.escalationPhase !== "PANIC") {
         this.escalationPhase = "PANIC";
-        if (this.usingMp3Ambient && this.ambientAudioEl) {
+        if (this.usingWebAudioMp3Ambient && this.ambientSourceNode && this.ambientSourceNode.playbackRate) {
+          try { this.ambientSourceNode.playbackRate.value = 1.08; } catch (e) {}
+        } else if (this.usingMp3Ambient && this.ambientAudioEl) {
           try { this.ambientAudioEl.playbackRate = 1.08; } catch (e) {}
         }
         this.startEscalationPulse(620, 0.26, true);
@@ -2899,14 +3400,18 @@ class SoundEngine {
     } else if (remainingSeconds <= 180 && remainingSeconds > 60) {
       if (this.escalationPhase !== "TENSION") {
         this.escalationPhase = "TENSION";
-        if (this.usingMp3Ambient && this.ambientAudioEl) {
+        if (this.usingWebAudioMp3Ambient && this.ambientSourceNode && this.ambientSourceNode.playbackRate) {
+          try { this.ambientSourceNode.playbackRate.value = 1.03; } catch (e) {}
+        } else if (this.usingMp3Ambient && this.ambientAudioEl) {
           try { this.ambientAudioEl.playbackRate = 1.03; } catch (e) {}
         }
         this.startEscalationPulse(1150, 0.14, false);
       }
     } else if (this.escalationPhase !== "NORMAL") {
       this.escalationPhase = "NORMAL";
-      if (this.usingMp3Ambient && this.ambientAudioEl) {
+      if (this.usingWebAudioMp3Ambient && this.ambientSourceNode && this.ambientSourceNode.playbackRate) {
+        try { this.ambientSourceNode.playbackRate.value = 1.0; } catch (e) {}
+      } else if (this.usingMp3Ambient && this.ambientAudioEl) {
         try { this.ambientAudioEl.playbackRate = 1.0; } catch (e) {}
       }
       this.stopEscalationPulse();
@@ -2917,7 +3422,7 @@ class SoundEngine {
     this.stopEscalationPulse();
     this.pulseInterval = setInterval(() => {
       if (!this.ctx || this.isMuted || !this.ambientEnabled) return;
-      if (this.ctx.state === "suspended") this.ctx.resume().catch(() => {});
+      if (this.ctx.state && this.ctx.state !== "running") return;
       this.triggerSubBassBeat(0, maxGain);
       if (includeDoubleBeat) {
         this.triggerSubBassBeat(0.18, maxGain * 0.65);
@@ -2927,7 +3432,7 @@ class SoundEngine {
 
   triggerSubBassBeat(delaySec, peakGain) {
     if (!this.ctx) return;
-    const now = this.ctx.currentTime + delaySec;
+    const now = (this.ctx.currentTime || 0) + delaySec;
     const osc = this.ctx.createOscillator();
     const g = this.ctx.createGain();
     osc.type = "sine";
@@ -2947,6 +3452,10 @@ class SoundEngine {
       clearInterval(this.pulseInterval);
       this.pulseInterval = null;
     }
+  }
+
+  stopEscalation() {
+    this.stopEscalationPulse();
   }
 }
 
@@ -3437,17 +3946,19 @@ function togglePhoneSpeakerMode() {
   appState.phoneSpeakerEnabled = !appState.phoneSpeakerEnabled;
   const s = appState.sessionData;
   if (appState.phoneSpeakerEnabled) {
-    soundFX.unlock();
+    soundFX.ensureUnlocked();
+    soundFX.playChime();
+    soundFX.preloadForSession(s);
     if (s && s.round >= 1 && s.round <= 3 && soundFX.ambientEnabled) {
       const pack = getEffectivePack(s.mysteryId, s.variantIndex);
       soundFX.startAmbient((pack && pack.ambientProfile) || "space");
     }
-    soundFX.playChime();
-    soundFX.speakBulletin("Host phone speaker mode enabled. Game audio and detective bulletins will play through this phone.");
+    if (!soundFX.isPlayingMajorVO) {
+      soundFX.speakBulletin("Host phone speaker mode enabled. Game audio and detective bulletins will play through this phone.");
+    }
   } else {
     if (appState.viewMode !== "tv") {
-      soundFX.stopAmbient();
-      soundFX.stopEscalation();
+      soundFX.stopAll();
     }
   }
   renderApp();
@@ -4118,6 +4629,7 @@ function handleIncomingSessionUpdate(newSession) {
   const pack = getEffectivePack(newSession.mysteryId, newSession.variantIndex);
 
   if (isAudioOutputActive()) {
+    soundFX.preloadForSession(newSession);
     if (newSession.round >= 1 && newSession.round <= 3 && soundFX.ambientEnabled) {
       soundFX.startAmbient(pack.ambientProfile || "space");
     } else if (newSession.round === 0 || newSession.round === 4) {
@@ -4146,9 +4658,12 @@ function handleIncomingSessionUpdate(newSession) {
     const ev = newSession.latestEvent;
 
     if (isAudioOutputActive()) {
+      if (soundFX.pendingBulletinTimeout) {
+        clearTimeout(soundFX.pendingBulletinTimeout);
+        soundFX.pendingBulletinTimeout = null;
+      }
       if (ev.type === "blackout" || ev.type === "sabotage_blackout") {
         soundFX.playBlackoutFX(pack ? pack.soundProfile : "siren");
-        if (soundFX.pendingBulletinTimeout) clearTimeout(soundFX.pendingBulletinTimeout);
         soundFX.pendingBulletinTimeout = setTimeout(() => {
           soundFX.pendingBulletinTimeout = null;
           if (isAudioOutputActive()) {
@@ -4157,10 +4672,28 @@ function handleIncomingSessionUpdate(newSession) {
         }, 1600);
       } else if (ev.type === "clue" || ev.type === "phase" || ev.type === "twist") {
         soundFX.playChime();
-        if (ev.speechText || ev.mp3File) soundFX.speakBulletin(ev.speechText || ev.text, ev.mp3File);
+        if (ev.mp3File) {
+          soundFX.pendingBulletinTimeout = setTimeout(() => {
+            soundFX.pendingBulletinTimeout = null;
+            if (isAudioOutputActive()) {
+              soundFX.speakBulletin(ev.speechText || ev.text, ev.mp3File);
+            }
+          }, 350);
+        } else if (ev.speechText) {
+          soundFX.speakBulletin(ev.speechText || ev.text, null);
+        }
       } else if (ev.type === "reveal") {
         soundFX.playDrumrollAndReveal();
-        if (ev.speechText || ev.mp3File) soundFX.speakBulletin(ev.speechText || ev.text, ev.mp3File);
+        if (ev.mp3File) {
+          soundFX.pendingBulletinTimeout = setTimeout(() => {
+            soundFX.pendingBulletinTimeout = null;
+            if (isAudioOutputActive()) {
+              soundFX.speakBulletin(ev.speechText || ev.text, ev.mp3File);
+            }
+          }, 900);
+        } else if (ev.speechText) {
+          soundFX.speakBulletin(ev.speechText || ev.text, null);
+        }
       }
     }
     if (appState.viewMode === "player") {
@@ -4605,6 +5138,7 @@ function toggleTimerPause() {
   if (!isAuthorizedHostOrTV(s)) {
     return alert("Only the Host or Smart TV can pause or resume the game.");
   }
+  if (isAudioOutputActive()) soundFX.ensureUnlocked();
   const now = Date.now();
   let updates = {};
 
@@ -4925,6 +5459,7 @@ function assignCharactersAndStartAct1() {
   if (!isAuthorizedHostOrTV(appState.sessionData)) {
     return alert("Only the Host or Smart TV can deal characters and start Act I.");
   }
+  if (isAudioOutputActive()) soundFX.ensureUnlocked();
   const s = JSON.parse(JSON.stringify(appState.sessionData));
   const playerIds = Object.keys(s.players || {}).slice(0, 10);
 
@@ -5117,6 +5652,7 @@ function triggerBlackoutMurder() {
   if (!isAuthorizedHostOrTV(appState.sessionData) && !isAuthorizedKiller(appState.sessionData)) {
     return alert("Only the Host, Smart TV, or active Killer can trigger the Blackout Murder.");
   }
+  if (isAudioOutputActive()) soundFX.ensureUnlocked();
   const s = JSON.parse(JSON.stringify(appState.sessionData));
   const pack = getEffectivePack(s.mysteryId, s.variantIndex);
   const victimChar = pack.characters[0];
@@ -5214,6 +5750,7 @@ function triggerMidRoundTwist() {
   if (!isAuthorizedGhostOrHost(s)) {
     return alert("Only the Host, Smart TV, or Ghost Investigator can trigger the Breaking News Plot Twist.");
   }
+  if (isAudioOutputActive()) soundFX.ensureUnlocked();
   midTwistLatch = true;
 
   const pack = getEffectivePack(s.mysteryId, s.variantIndex);
@@ -5383,6 +5920,7 @@ function advanceToAct3Voting() {
   if (!isAuthorizedHostOrTV(appState.sessionData)) {
     return alert("Only the Host or Smart TV can open Act III Voting.");
   }
+  if (isAudioOutputActive()) soundFX.ensureUnlocked();
   const s = JSON.parse(JSON.stringify(appState.sessionData));
   const pack = getEffectivePack(s.mysteryId, s.variantIndex);
   const now = Date.now();
@@ -5572,6 +6110,7 @@ function revealFinalSolution() {
   if (!isAuthorizedHostOrTV(appState.sessionData)) {
     return alert("Only the Host or Smart TV can reveal the Final Solution.");
   }
+  if (isAudioOutputActive()) soundFX.ensureUnlocked();
   const s = JSON.parse(JSON.stringify(appState.sessionData));
   const pack = getEffectivePack(s.mysteryId, s.variantIndex);
   const now = Date.now();
@@ -5849,7 +6388,8 @@ function updateModeBadge() {
 }
 
 function testTvVoice() {
-  soundFX.unlock();
+  soundFX.ensureUnlocked();
+  soundFX.playChime();
   const s = appState.sessionData;
   const pack = s ? getEffectivePack(s.mysteryId, s.variantIndex || 0) : null;
   const title = pack && pack.title ? pack.title : "Murder Mystery Party Engine";
@@ -6103,9 +6643,11 @@ function handleStartTVNew() {
 }
 
 function handleStartPhoneHostNew() {
+  soundFX.ensureUnlocked();
   const sel = document.getElementById("launchMysterySelect").value;
   const name = prompt("Enter your player name (You can host & play spoiler-free!):", appState.playerName || "Host");
   if (!name) return;
+  soundFX.ensureUnlocked();
   appState.playerName = name.trim();
   safeStorageSet("mm_player_name", appState.playerName);
   createNewRoom(sel, "player");
@@ -6120,6 +6662,7 @@ function handleJoinNameInput(val) {
 }
 
 function handleJoinPhone() {
+  soundFX.ensureUnlocked();
   const code = document.getElementById("joinRoomCodeInput").value;
   const name = document.getElementById("joinPlayerNameInput").value;
   joinExistingRoom(code, name, "player");
@@ -7198,6 +7741,16 @@ function renderMobilePlayerView() {
             <span class="min-w-0 leading-snug">🔊 Use My Phone as TV Speaker</span>
             <span class="shrink-0 px-2 py-0.5 rounded text-[10px] ${appState.phoneSpeakerEnabled ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'}">${appState.phoneSpeakerEnabled ? 'ON' : 'OFF'}</span>
           </button>
+          ${appState.phoneSpeakerEnabled ? `
+            <div class="grid grid-cols-2 gap-2">
+              <button type="button" onclick="soundFX.toggleAmbient()" class="py-1.5 px-2 rounded-xl text-[11px] font-mono-code font-bold border transition ${soundFX.ambientEnabled ? 'bg-cyan-950/70 border-cyan-700 text-cyan-300' : 'bg-slate-950 border-slate-800 text-slate-400'}">
+                🎵 Ambient: ${soundFX.ambientEnabled ? 'ON' : 'OFF'}
+              </button>
+              <button type="button" onclick="testTvVoice()" class="py-1.5 px-2 rounded-xl text-[11px] font-mono-code font-bold border bg-slate-950 hover:bg-slate-800 border-emerald-800/70 text-emerald-300 transition">
+                🔊 Test Audio
+              </button>
+            </div>
+          ` : ""}
 
           ${s.round >= 1 && s.round <= 3 ? `
             <div class="flex gap-2 pb-2 border-b border-slate-800">
@@ -7569,6 +8122,12 @@ window.addEventListener("DOMContentLoaded", () => {
   if (appRootEl && !appRootDelegatedBound && typeof appRootEl.addEventListener === "function") {
     appRootEl.addEventListener("click", handleAppRootDelegatedClick);
     appRootDelegatedBound = true;
+  }
+  if (typeof document !== "undefined" && typeof document.addEventListener === "function") {
+    const unlockHandler = () => soundFX.handleUserGestureUnlock();
+    ["pointerdown", "touchstart", "click", "keydown"].forEach(evtName => {
+      document.addEventListener(evtName, unlockHandler, { passive: true, capture: true });
+    });
   }
   initSyncBackend();
   const params = new URLSearchParams(window.location.search);
